@@ -40,7 +40,7 @@ public class Cache extends AbstractActor {
     }
 
     protected void onCrashMsg(Messages.CrashMsg msg){
-        System.out.println(getSelf().path().name()+" received crashMsg");
+        say(" received crashMsg");
         nextCrash = msg.nextCrash;
         nextCrashWhen = msg.nextCrashWhen;
     }
@@ -95,16 +95,6 @@ public class Cache extends AbstractActor {
 //        return current != null && current != 0;
         return locks.get(msg.dataId) != null && locks.get(msg.dataId);
     }
-
-//    private void correctLock(Messages.Message msg){
-//        Integer current = locks.get(msg.dataId);
-//        if(current != null){
-//            if(current < 0){
-//                sayError("Detected invalid lock value");
-//                System.exit(1);
-//            }
-//        }
-//    }
 
     /**
      * Returns true if it goes in crash mode, false otherwise.

@@ -14,8 +14,6 @@ public class Client extends AbstractActor {
     private List<ActorRef> listL2;
     //keep track of request messages and reuse them if a cache crashes. Delete them when the response arrives
     private HashMap<String, Messages.Message> requestsMessages;
-    //keep track of receivers of msg
-//    private HashMap<String, ActorRef> requestReceivers;
     //keep track of checkMsg responses
     private HashMap<String, Boolean> checkMsgAnswers;
     private Random random;
@@ -48,7 +46,11 @@ public class Client extends AbstractActor {
 
     private void onStartReadRequestMsg(Messages.StartReadRequestMsg msg) {
         Messages.ReadRequestMsg m = new Messages.ReadRequestMsg(msg.dataId);
-        sendMessageAndAddTimeout(m, m.requestId, msg.l2);
+        ActorRef l2 = msg.l2;
+        if(l2 == null){
+            l2 = getRandomL2();
+        }
+        sendMessageAndAddTimeout(m, m.requestId, l2);
     }
 
     private void onReadResponseMsg(Messages.ReadResponseMsg msg) {
@@ -59,8 +61,11 @@ public class Client extends AbstractActor {
 
     private void onStartWriteRequestMsg(Messages.StartWriteRequestMsg msg) {
         Messages.WriteRequestMsg m = new Messages.WriteRequestMsg(msg.dataId, msg.value);
-//        requests.add(m.requestId);
-        sendMessageAndAddTimeout(m, m.requestId, msg.l2);
+        ActorRef l2 = msg.l2;
+        if(l2 == null){
+            l2 = getRandomL2();
+        }
+        sendMessageAndAddTimeout(m, m.requestId, l2);
     }
 
     private void onWriteResponseMsg(Messages.WriteResponseMsg msg){
@@ -71,15 +76,21 @@ public class Client extends AbstractActor {
 
     private void onStartCritReadRequestMsg(Messages.StartCritReadRequestMsg msg) {
         Messages.CritReadRequestMsg m = new Messages.CritReadRequestMsg(msg.dataId);
-//        requests.add(m.requestId);
-        sendMessageAndAddTimeout(m, m.requestId, msg.l2);
+        ActorRef l2 = msg.l2;
+        if(l2 == null){
+            l2 = getRandomL2();
+        }
+        sendMessageAndAddTimeout(m, m.requestId, l2);
     }
 
     private void onStartCritWriteRequestMsg(Messages.StartCritWriteRequestMsg msg){
         Messages.CritWriteRequestMsg m = new Messages.CritWriteRequestMsg(msg.dataId, msg.value);
-//        requests.add(m.requestId);
-        System.out.println(getSelf().path().name()+" received critWrite request with dataId "+ msg.dataId + " and value " + msg.value);
-        sendMessageAndAddTimeout(m, m.requestId, msg.l2);
+        ActorRef l2 = msg.l2;
+        if(l2 == null){
+            l2 = getRandomL2();
+        }
+//        say("received critWrite request with dataId "+ msg.dataId + " and value " + msg.value);
+        sendMessageAndAddTimeout(m, m.requestId, l2);
     }
 
     private void onSelfTimeoutMsg(Messages.SelfTimeoutMsg msg){
@@ -91,7 +102,6 @@ public class Client extends AbstractActor {
         this.checkMsgAnswers.put(msg.requestId, false);
         Messages.CheckMsg m = new Messages.CheckMsg(msg.dataId, msg.requestId);
         msg.receiver.tell(m, getSelf());
-//        requestReceivers.get(msg.requestId).tell(m, getSelf());
         getContext().system().scheduler().scheduleOnce(
                 Duration.create(100, TimeUnit.MILLISECONDS),  // how frequently generate them
                 getSelf(),                                          // destination actor reference
@@ -106,40 +116,36 @@ public class Client extends AbstractActor {
             //request served
             return;
         }
-//        System.err.println("STILL NOT SERVED");
-
         checkMsgAnswers.put(msg.requestId, true);
-//        System.out.println(checkMsgAnswers.get(msg.requestId));
     }
     private void onCheckTimeoutMsg(Messages.CheckTimeoutMsg msg){
         if(requestsMessages.get(msg.requestId) == null){
             //request served
             return;
         }
-
-
         Messages.Message m = requestsMessages.get(msg.requestId);
         //cache answered to the checkMsg but has not yet served the request
         if(checkMsgAnswers.get(msg.requestId)){
             //cache is still online, need to reschedule the check msg
-//            receiver = requestReceivers.get(msg.requestId);
             //refresh checkmsg
             refreshSelfTimeout(msg.requestId, msg.receiver);
         }else{
             //cache crashed, need to choose another cache
-//            System.err.println("CRASH DETECTED");
-            say("CRASH DETECTED ON: "+ msg.receiver.path().name());
-            int index = random.nextInt(listL2.size());
-//            requestReceivers.put(msg.requestId, receiver);
-            say("NEW CACHE CHOSEN: "+listL2.get(index).path().name());
-            sendMessageAndAddTimeout(m, msg.requestId, listL2.get(index));
+            sayError("CRASH DETECTED ON: "+ msg.receiver.path().name());
+            ActorRef l2 = getRandomL2();
+            sayError("NEW CACHE CHOSEN: "+l2.path().name());
+            sendMessageAndAddTimeout(m, msg.requestId, l2);
         }
 
     }
 
+    private ActorRef getRandomL2(){
+        int index = random.nextInt(listL2.size());
+        return listL2.get(index);
+    }
+
     private void sendMessageAndAddTimeout(Messages.Message m, String requestId, ActorRef receiver){
         requestsMessages.put(requestId, m);
-//        requestReceivers.put(requestId, receiver);
         receiver.tell(m, getSelf());
         getContext().system().scheduler().scheduleOnce(
                 Duration.create(400, TimeUnit.MILLISECONDS),  // how frequently generate them
@@ -177,6 +183,9 @@ public class Client extends AbstractActor {
     }
     private void say(String text){
         System.out.println(getSelf().path().name()+": "+text);
+    }
+    protected void sayError(String text){
+        System.err.println(getSelf().path().name()+": "+text);
     }
 
 }

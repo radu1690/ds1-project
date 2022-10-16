@@ -31,20 +31,8 @@ public class Messages {
     public static void simulateDelay(){
 //        System.out.println("SIMULATING DELAY");
 //        System.out.println("BEFORE: "+System.currentTimeMillis());
-
-
         try { Thread.sleep(rnd.nextInt(delayMs)); }
-//        try { Thread.sleep(1000); }
         catch (InterruptedException e) { e.printStackTrace(); }
-
-
-//        try {
-//            TimeUnit.MILLISECONDS.sleep(rnd.nextInt(delayMs));
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-
-
 //        System.out.println("AFTER: "+System.currentTimeMillis());
     }
 
@@ -70,6 +58,10 @@ public class Messages {
         public StartReadRequestMsg(Integer dataId, ActorRef l2) {
             super(dataId, null);
             this.l2 = l2;
+        }
+        public StartReadRequestMsg(Integer dataId) {
+            super(dataId, null);
+            this.l2 = null;
         }
     }
 
@@ -101,20 +93,20 @@ public class Messages {
             this.value = value;
             this.l2 = l2;
         }
+        public StartWriteRequestMsg(Integer dataId, Integer value) {
+            super(dataId, null);
+            this.value = value;
+            this.l2 = null;
+        }
     }
 
     public static class WriteResponseMsg extends Message {
         //current value of the data (might be different if write has already been served)
         public final Integer currentValue;
-        //if the request has already been served but the current value is different (another write happened),
-        //set valid to false
-//        public final Boolean valid;
         public final Boolean afterFlush;
-//        public WriteResponseMsg(Integer dataId, Integer value, String requestId, Boolean valid, Boolean afterFlush) {
           public WriteResponseMsg(Integer dataId, Integer value, String requestId, Boolean afterFlush) {
             super(dataId, requestId);
             this.currentValue = value;
-//            this.valid = valid;
             this.afterFlush = afterFlush;
         }
     }
@@ -130,6 +122,10 @@ public class Messages {
         public StartCritReadRequestMsg(Integer dataId, ActorRef l2) {
             super(dataId, null);
             this.l2 = l2;
+        }
+        public StartCritReadRequestMsg(Integer dataId) {
+            super(dataId, null);
+            this.l2 = null;
         }
     }
 
@@ -153,11 +149,13 @@ public class Messages {
             this.value = value;
             this.l2 = l2;
         }
+        public StartCritWriteRequestMsg(Integer dataId, Integer value) {
+            super(dataId, null);
+            this.value = value;
+            this.l2 = null;
+        }
     }
     public static class FlushRequestMsg extends Message {
-//        public FlushRequestMsg(Integer dataId) {
-//            super(dataId, UUID.randomUUID().toString());
-//        }
         public FlushRequestMsg(Integer dataId, String requestId){
             super(dataId, requestId);
         }

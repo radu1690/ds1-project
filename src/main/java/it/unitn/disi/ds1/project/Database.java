@@ -123,29 +123,26 @@ public class Database extends AbstractActor {
      */
     public boolean checkLocks(Messages.Message msg, ActorRef sender, boolean addToPending){
         if(locks.contains(msg.dataId)){
-//            System.err.println("SIZE: "+locks.size());
-            say(" lock detected on dataId "+ msg.dataId);
+//            say(" lock detected on dataId "+ msg.dataId);
             if(addToPending){
                 this.pendingRequestMessages.add(msg);
                 this.requestsActors.put(msg.requestId, sender);
-                say(" added msg to pendingRequestMessages");
+//                say(" added msg to pendingRequestMessages");
             }
             return true;
         }
         return false;
     }
 
-    //this is the same for both normal read and critical read
+    //this is the same for both normal read and critical read (critical read msg is mapped to this function)
     private void onReadRequestMsg(Messages.Message msg, ActorRef sender) {
         Messages.simulateDelay();
         if(sender == null){
             sender = getSender();
-//            System.out.println(getSelf().path().name()+ ": received read request dataId: "+msg.dataId+" and requestId: "+msg.requestId);
         }
 
         checkCrashAndUpdate(sender);
 
-        //todo no sure if it's ok to read it if there is a lock
         if(checkLocks(msg, sender, true)){
             return;
         }
@@ -170,7 +167,7 @@ public class Database extends AbstractActor {
 
         //if the write request has already been served, no need to write again and update the other caches, simply send
         //back confirmation with the current value
-        //this is the case when L1 or L2 crashes when sending confirmation
+        //this is the case when L1 or L2 crashes when receiving confirmation
 
         if(servedWrites.contains(msg.requestId)){
             say("Request already served, not writing again");
@@ -206,51 +203,33 @@ public class Database extends AbstractActor {
         }
     }
 
-//    private void onCritReadRequestMsg(Messages.CritReadRequestMsg msg) {
-//        checkCrashAndUpdate(getSender());
-//        if(checkLocks(msg, getSender())){
-//            return;
-//        }
-//        Integer value = this.data.get(msg.dataId);
-////        System.out.println(data);
-//        //send response with this data
-//
-//        Messages.ReadResponseMsg response = new Messages.ReadResponseMsg(msg.dataId, value, msg.requestId);
-//        getSender().tell(response, getSelf());
-//    }
-
     private void onCritWriteRequestMsg(Messages.CritWriteRequestMsg msg, ActorRef sender){
         Messages.simulateDelay();
-//        System.err.println("RECEIVED CRIT WRITE   "+getSender().path().name());
         if(sender == null){
             sender = getSender();
         }
         checkCrashAndUpdate(sender);
         if(checkLocks(msg, sender, true)){
-//            System.err.println("ADDED CRIT WRITE TO PENDING");
             return;
         }
 
         if(servedWrites.contains(msg.requestId)){
             Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId, false);
-
             sender.tell(response, getSelf());
-
             return;
         }
-        //put a lock on this data until the crit write is not finished
+        //put a lock on this data until the critical write is not finished
         this.locks.add(msg.dataId);
         this.data.put(msg.dataId, msg.value);
         this.requestsActors.put(msg.requestId, sender);
+        //prepare flush message
         Messages.FlushRequestMsg flushRequest = new Messages.FlushRequestMsg(msg.dataId, msg.requestId);
         HashSet<ActorRef> flushes = new HashSet<>();
         this.critWriteFlushes.put(msg.requestId, flushes);
-//        System.out.println("CRITWRITE: "+ msg.requestId);
         for(ActorRef L1 : this.cacheL1){
             if(!crashedCaches.contains(L1)){
                 L1.tell(flushRequest, getSelf());
                 flushes.add(L1);
-//                System.out.println(L1);
             }else{
                 //this L1 crashed, need to send the response to its L2
                 for(ActorRef L2 : this.cacheL2.get(L1)){
@@ -261,9 +240,7 @@ public class Database extends AbstractActor {
                     }
                 }
             }
-            //System.out.println(flushes);
         }
-//        this.critWriteFlushes.put(msg.requestId, flushes);
         //onFlushResponseMsg will remove caches from flushes, so we need to add a timeout here to see if all caches have
         //been removed
         //COMPLETED add flush timeout
@@ -280,21 +257,12 @@ public class Database extends AbstractActor {
         Messages.simulateDelay();
         HashSet<ActorRef> flushes = this.critWriteFlushes.get(msg.requestId);
         flushes.remove(getSender());
-
-
-//        System.err.println(getSender().path().name()+"   "+ msg);
-
-
-        //if all flushes have been received,send refill msgs after flush
+        //if all flushes have been received,send refill messages after flush
         if(flushes.isEmpty()){
-//            say("All flushes received!");
-//            System.err.println(getSender().path().name());
-//            System.err.println(msg);
             this.critWriteFlushes.remove(msg.requestId);
             locks.remove(msg.dataId);
             sendRefillAfterFlush(msg);
         }
-
     }
 
     private void onRefillResponseMsg(Messages.RefillResponseMsg msg){
@@ -309,69 +277,35 @@ public class Database extends AbstractActor {
         if(flushes == null || flushes.isEmpty()){
             return;
         }
-
         //check if someone is crashed
-        HashSet<ActorRef> checks = new HashSet<>();
-        flushChecks.put(msg.requestId, checks);
-        for(ActorRef cache:flushes){
-            Messages.CheckMsg checkMsg = new Messages.CheckMsg(msg.dataId, msg.requestId);
-            cache.tell(checkMsg, getSelf());
-            checks.add(cache);
-        }
-        //COMPLETED add check timeout
-        getContext().system().scheduler().scheduleOnce(
-                Duration.create(200, TimeUnit.MILLISECONDS),  // how frequently generate them
-                getSelf(),                                          // destination actor reference
-                new Messages.CheckTimeoutMsg(msg.dataId, msg.requestId, null),             // the message to send
-                getContext().system().dispatcher(),                 // system dispatcher
-                getSelf()                                           // source of the message (myself)
-        );
-        //--------------------
-
-
+        sendChecksForFlush(msg, flushes);
     }
 
     private void onCheckResponseMsg(Messages.CheckResponseMsg msg){
-        //Messages.simulateDelay();
+        Messages.simulateDelay();
         HashSet<ActorRef> checks = flushChecks.get(msg.requestId);
         checks.remove(getSender());
     }
 
     private void onCheckTimeoutMsg(Messages.CheckTimeoutMsg msg){
         HashSet<ActorRef> checks = flushChecks.get(msg.requestId);
+        HashSet<ActorRef> flushes = this.critWriteFlushes.get(msg.requestId);
         if(checks.isEmpty()){
             //no one crashed
-            HashSet<ActorRef> flushes = this.critWriteFlushes.get(msg.requestId);
             if(flushes == null || flushes.isEmpty()){
                 //all flushes obtained
                 sendRefillAfterFlush(msg);
                 return;
             }
-
             //no one crashed, but still waiting for a flush confirmation, reschedule the checkmsg
             //re-check if someone is crashed
-            HashSet<ActorRef> newChecks = new HashSet<>();
-            flushChecks.put(msg.requestId, newChecks);
-            for(ActorRef cache:flushes){
-                Messages.CheckMsg checkMsg = new Messages.CheckMsg(msg.dataId, msg.requestId);
-                cache.tell(checkMsg, getSelf());
-                checks.add(cache);
-            }
-
-            getContext().system().scheduler().scheduleOnce(
-                    Duration.create(200, TimeUnit.MILLISECONDS),  // how frequently generate them
-                    getSelf(),                                          // destination actor reference
-                    new Messages.CheckTimeoutMsg(msg.dataId, msg.requestId, null),             // the message to send
-                    getContext().system().dispatcher(),                 // system dispatcher
-                    getSelf()                                           // source of the message (myself)
-            );
+            sendChecksForFlush(msg, flushes);
         }else{
             //someone crashed, need to contact L2 children or if L2 crashed, set them as crashed
-//            System.err.println("DB: Someone crashed");
-            HashSet<ActorRef> flushes = this.critWriteFlushes.get(msg.requestId);
             HashSet<ActorRef> newFlushes = new HashSet<>();
             Messages.FlushRequestMsg flushMsg = new Messages.FlushRequestMsg(msg.dataId, msg.requestId);
-            for(ActorRef crashedCache : flushes){
+            for(ActorRef crashedCache : checks){
+                flushes.remove(crashedCache);
                 if(cacheL2.get(crashedCache)!= null){
                     //crashed cache is l1, contact children
                     ArrayList<ActorRef> l2caches = cacheL2.get(crashedCache);
@@ -385,7 +319,8 @@ public class Database extends AbstractActor {
             }
             if(!newFlushes.isEmpty()){
                 //if new flushes have been send, add timeout and wait
-                critWriteFlushes.put(msg.requestId, newFlushes);
+                flushes.addAll(newFlushes);
+                critWriteFlushes.put(msg.requestId, flushes);
                 getContext().system().scheduler().scheduleOnce(
                         Duration.create(400, TimeUnit.MILLISECONDS),  // how frequently generate them
                         getSelf(),                                          // destination actor reference
@@ -450,6 +385,11 @@ public class Database extends AbstractActor {
         }
     }
 
+    /**
+     * Send refill messages (with timeout) to all L1 caches (and L2 caches whose father crashed). A write response instead of
+     * a refill message is sent to the cache that started the request (without timeout).
+     * @param msg
+     */
     private void sendRefillAfterFlush(Messages.Message msg){
         //for the sender of the crit write, send a write response (no timeout needed, if it crashed, the child/client
         //that started the request will resend it)
@@ -461,6 +401,7 @@ public class Database extends AbstractActor {
         HashSet<ActorRef> fills = new HashSet<>();
         this.fillResponses.put(msg.requestId, fills);
         this.requestsActors.get(msg.requestId).tell(response, getSelf());
+        //add fill timeout for L1 only
         for(ActorRef L1 : this.cacheL1){
             if(!crashedCaches.contains(L1)){
                 if(L1 != this.requestsActors.get(msg.requestId)) {
@@ -493,6 +434,24 @@ public class Database extends AbstractActor {
 
     }
 
+    private void sendChecksForFlush(Messages.Message msg, HashSet<ActorRef> flushes){
+        HashSet<ActorRef> checks = new HashSet<>();
+        flushChecks.put(msg.requestId, checks);
+        for(ActorRef cache:flushes){
+            Messages.CheckMsg checkMsg = new Messages.CheckMsg(msg.dataId, msg.requestId);
+            cache.tell(checkMsg, getSelf());
+            checks.add(cache);
+        }
+
+        getContext().system().scheduler().scheduleOnce(
+                Duration.create(200, TimeUnit.MILLISECONDS),  // how frequently generate them
+                getSelf(),                                          // destination actor reference
+                new Messages.CheckTimeoutMsg(msg.dataId, msg.requestId, null),             // the message to send
+                getContext().system().dispatcher(),                 // system dispatcher
+                getSelf()                                           // source of the message (myself)
+        );
+    }
+
     private void processPendingRequests(){
         Iterator<Messages.Message> i = pendingRequestMessages.iterator();
         while(i.hasNext()){
@@ -504,32 +463,11 @@ public class Database extends AbstractActor {
                     onWriteRequestMsg((Messages.WriteRequestMsg) msg, requestsActors.get(msg.requestId));
                 }else if(msg instanceof Messages.CritWriteRequestMsg){
                     onCritWriteRequestMsg((Messages.CritWriteRequestMsg) msg, requestsActors.get(msg.requestId));
-                    //at the end of a critical write, this method will be called again
-//                System.err.println("BREAK!!!!");
-////                break;
                 }
                 i.remove();
-//                System.out.println("Pending size: "+pendingRequestMessages.size());
             }
 
         }
-
-
-
-//        for(Messages.Message msg: pendingRequestMessages){
-//            say("Process pending request ("+pendingRequestMessages.size()+")");
-////            pendingRequestMessages.remove(msg);
-//            if(msg instanceof Messages.ReadRequestMsg || msg instanceof Messages.CritReadRequestMsg){
-//                onReadRequestMsg(msg, requestsActors.get(msg.requestId));
-//            }else if(msg instanceof Messages.WriteRequestMsg){
-//                onWriteRequestMsg((Messages.WriteRequestMsg) msg, requestsActors.get(msg.requestId));
-//            }else if(msg instanceof Messages.CritWriteRequestMsg){
-//                onCritWriteRequestMsg((Messages.CritWriteRequestMsg) msg, requestsActors.get(msg.requestId));
-//                //at the end of a critical write, this method will be called again
-//                System.err.println("BREAK!!!!");
-////                break;
-//            }
-//        }
     }
 
     private void onReadRequestMsgMatch(Messages.Message msg){

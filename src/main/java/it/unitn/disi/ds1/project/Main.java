@@ -163,23 +163,23 @@ public class Main {
         Messages.StartCritWriteRequestMsg wc3 = new Messages.StartCritWriteRequestMsg(0, 420, cacheL2.get(2));
         Messages.StartCritWriteRequestMsg wc4 = new Messages.StartCritWriteRequestMsg(0, 69, cacheL2.get(4));
         Messages.StartCritWriteRequestMsg wc5 = new Messages.StartCritWriteRequestMsg(0, 777, cacheL2.get(5));
-        Messages.StartWriteRequestMsg w1 = new Messages.StartWriteRequestMsg(0, 1, cacheL2.get(6));
-        Messages.StartWriteRequestMsg w2 = new Messages.StartWriteRequestMsg(0, 2, cacheL2.get(1));
-        Messages.StartWriteRequestMsg w3 = new Messages.StartWriteRequestMsg(0, 3, cacheL2.get(2));
-        Messages.StartWriteRequestMsg w4 = new Messages.StartWriteRequestMsg(0, 4, cacheL2.get(3));
-        Messages.StartReadRequestMsg r1 = new Messages.StartReadRequestMsg(0, cacheL2.get(4));
-        Messages.StartReadRequestMsg r2 = new Messages.StartReadRequestMsg(0, cacheL2.get(5));
-        Messages.StartReadRequestMsg r3 = new Messages.StartReadRequestMsg(0, cacheL2.get(6));
-        Messages.StartReadRequestMsg r4 = new Messages.StartReadRequestMsg(0, cacheL2.get(3));
-        Messages.CrashMsg cr1 = new Messages.CrashMsg(Messages.CrashType.FlushRequest, Messages.CrashTime.MessageProcessed);
-        cacheL2.get(1).tell(cr1, ActorRef.noSender());
+        Messages.StartWriteRequestMsg w1 = new Messages.StartWriteRequestMsg(0, 1);
+        Messages.StartWriteRequestMsg w2 = new Messages.StartWriteRequestMsg(0, 2);
+        Messages.StartWriteRequestMsg w3 = new Messages.StartWriteRequestMsg(0, 3);
+        Messages.StartWriteRequestMsg w4 = new Messages.StartWriteRequestMsg(0, 4);
+        Messages.StartReadRequestMsg r1 = new Messages.StartReadRequestMsg(0);
+        Messages.StartReadRequestMsg r2 = new Messages.StartReadRequestMsg(0);
+        Messages.StartReadRequestMsg r3 = new Messages.StartReadRequestMsg(0);
+        Messages.StartReadRequestMsg r4 = new Messages.StartReadRequestMsg(0);
+        Messages.CrashMsg cr1 = new Messages.CrashMsg(Messages.CrashType.ReadRequest, Messages.CrashTime.MessageProcessed);
+        cacheL2.get(2).tell(cr1, ActorRef.noSender());
 
         clients.get(0).tell(w1, ActorRef.noSender());
         clients.get(0).tell(w2, ActorRef.noSender());
         clients.get(0).tell(w3, ActorRef.noSender());
         clients.get(0).tell(w4, ActorRef.noSender());
 
-//        inputContinue();
+        inputContinue();
 
 
         clients.get(2).tell(wc1, ActorRef.noSender());

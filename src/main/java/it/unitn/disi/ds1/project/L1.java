@@ -38,7 +38,6 @@ public class L1 extends Cache{
 
     private void onInitializationMsg(L1.L1InitializationMsg msg) {
         this.cacheL2 = msg.listL2;
-        //System.out.println(cacheL2.toString());
     }
 
 
@@ -63,12 +62,9 @@ public class L1 extends Cache{
             sender.tell(response, getSelf());
             return;
         }
-
-
-        //otherwise save the request and ask the database
+        //otherwise save the sender of the request and ask the database
         this.requestsActors.put(msg.requestId, sender);
         this.database.tell(msg, getSelf());
-
         gonnaCrash(Messages.CrashType.ReadRequest, Messages.CrashTime.MessageProcessed);
     }
 
@@ -81,7 +77,7 @@ public class L1 extends Cache{
         if(requestsActors.get(msg.requestId) != null){
             if(!Objects.equals(data.get(msg.dataId), msg.value)){
                 //if local data is different from message, update it and send refill to all children except requester
-                say(": updated dataId " + msg.dataId + " with value " + msg.value + "old value was: "+data.get(msg.dataId));
+                say(": updated dataId " + msg.dataId + " with value " + msg.value + ", old value was: "+data.get(msg.dataId));
                 this.data.put(msg.dataId, msg.value);
                 Messages.RefillRequestMsg refill = new Messages.RefillRequestMsg(msg.dataId, msg.value, msg.requestId);
                 for(ActorRef l2 : cacheL2){
@@ -110,12 +106,8 @@ public class L1 extends Cache{
             sender.tell(response, getSelf());
             return;
         }
-        //invalidate current data
-//        this.data.remove(msg.dataId);
-//        setLock(msg);
         this.requestsActors.put(msg.requestId, sender);
         this.database.tell(msg, getSelf());
-
         gonnaCrash(Messages.CrashType.WriteRequest, Messages.CrashTime.MessageProcessed);
     }
 
@@ -124,11 +116,6 @@ public class L1 extends Cache{
         Messages.simulateDelay();
         if(gonnaCrash(Messages.CrashType.WriteResponse, Messages.CrashTime.MessageReceived)){
             return;
-        }
-//        removeLock(msg);
-        if(msg.afterFlush){
-            removeLock(msg);
-            processReads();
         }
         if(!Objects.equals(data.get(msg.dataId), msg.currentValue)){
             //update if data is different
@@ -149,8 +136,11 @@ public class L1 extends Cache{
         if(this.requestsActors.get(msg.requestId) != null) {
             this.requestsActors.remove(msg.requestId).tell(msg, getSelf());
         }
-        //remove the lock if present
-//        this.locks.remove(msg.dataId);
+        //if this was a critical write, remove the lock and process pending reads
+        if(msg.afterFlush){
+            removeLock(msg);
+            processReads();
+        }
         gonnaCrash(Messages.CrashType.WriteResponse, Messages.CrashTime.MessageProcessed);
     }
 
@@ -164,21 +154,17 @@ public class L1 extends Cache{
         }
         this.requestsActors.put(msg.requestId, sender);
         this.database.tell(msg, getSelf());
-
         gonnaCrash(Messages.CrashType.CritReadRequest, Messages.CrashTime.MessageProcessed);
     }
 
     private void onCritWriteRequestMsg(Messages.CritWriteRequestMsg msg){
+//        say("Received critical write");
         Messages.simulateDelay();
-
         ActorRef sender = getSender();
 
         if(gonnaCrash(Messages.CrashType.CritWriteRequest, Messages.CrashTime.MessageReceived)){
             return;
         }
-//        if(checkLocks(msg, getSender())){
-//            return;
-//        }
         if(servedWrites.contains(msg.requestId)){
             System.out.println(getSelf().path().name()+ ": Request already served, not writing again");
             Boolean valid = (data.get(msg.dataId).equals(msg.value));
@@ -186,13 +172,10 @@ public class L1 extends Cache{
             sender.tell(response, getSelf());
             return;
         }
-        //invalidate current data
-//        this.data.remove(msg.dataId);
-//        setLock(msg);
         this.requestsActors.put(msg.requestId, sender);
         this.database.tell(msg, getSelf());
 
-        gonnaCrash(Messages.CrashType.CritReadRequest, Messages.CrashTime.MessageProcessed);
+        gonnaCrash(Messages.CrashType.CritWriteRequest, Messages.CrashTime.MessageProcessed);
     }
 
     private void onFlushRequestMsg(Messages.FlushRequestMsg msg){
@@ -200,8 +183,6 @@ public class L1 extends Cache{
         if(gonnaCrash(Messages.CrashType.FlushRequest, Messages.CrashTime.MessageReceived)){
             return;
         }
-//        this.data.remove(msg.dataId);
-//        this.locks.add(msg.dataId);
         if(data.get(msg.dataId)!=null){
             //data is present, need to flush and tell children
             setLock(msg);
@@ -214,8 +195,7 @@ public class L1 extends Cache{
                     checks.add(L2);
                 }
             }
-//            say("CHECKS: "+ checks);
-            //COMPLETED add timeout on children
+            //add timeout on children
             getContext().system().scheduler().scheduleOnce(
                     Duration.create(200, TimeUnit.MILLISECONDS),  // how frequently generate them
                     getSelf(),                                          // destination actor reference
@@ -223,12 +203,12 @@ public class L1 extends Cache{
                     getContext().system().dispatcher(),                 // system dispatcher
                     getSelf()                                           // source of the message (myself)
             );
+            //it will respond to db once all flushes from children will be received
         }else{
             //no data, it is safe to respond immediately to db
             Messages.FlushResponseMsg flushResponse = new Messages.FlushResponseMsg(msg.dataId, msg.requestId);
             this.database.tell(flushResponse, getSelf());
         }
-
         gonnaCrash(Messages.CrashType.FlushRequest, Messages.CrashTime.MessageProcessed);
     }
 
@@ -243,8 +223,7 @@ public class L1 extends Cache{
         }
     }
 
-    private void onCheckTimeoutMsg(Messages.CheckTimeoutMsg msg){
-//        Messages.simulateDelay();
+    private void onFlushCheckTimeoutMsg(Messages.CheckTimeoutMsg msg){
         HashSet<ActorRef> checks = flushChecks.get(msg.requestId);
         if(checks.isEmpty()){
             //no cache crashed
@@ -273,35 +252,19 @@ public class L1 extends Cache{
                 //no need to put a timeout, if L2 crash they lose their data (the client will resend the write)
             }
         }
-//        this.locks.remove(msg.dataId);
         removeLock(msg);
         if(!isLocked(msg)){
             processReads();
         }
 
-        //COMPLETED rispondere al database solo dopo aver mandato i messaggi a l2
+        //send response to database only AFTER sending the refill to children!
+        //this way, if L1 crashed after sending the refill, it's guaranteed that the children received the update
         Messages.RefillResponseMsg refillResponseMsg = new Messages.RefillResponseMsg(msg.dataId, msg.value, msg.requestId);
         this.database.tell(refillResponseMsg, getSelf());
 
         gonnaCrash(Messages.CrashType.RefillRequest, Messages.CrashTime.MessageProcessed);
     }
 
-
-
-//    private void processReads(){
-//        if(pendingReads.isEmpty()){
-//            return;
-//        }
-//        for(Messages.Message m: pendingReads){
-//            pendingReads.remove(m);
-//            if(m instanceof Messages.ReadRequestMsg){
-//                onReadRequestMsg((Messages.ReadRequestMsg) m, requestsActors.get(m.requestId));
-//            }else{
-//                System.err.println("WRONG READ MSG???");
-//                System.exit(1);
-//            }
-//        }
-//    }
     @Override
     protected void onRecoveryMsg(Messages.RecoveryMsg msg){
         data = new HashMap<>();
@@ -312,7 +275,7 @@ public class L1 extends Cache{
         locks = new HashMap<>();
         getContext().become(createReceive());
 
-        //COMPLETED CONTACT FATHER/DB
+        //CONTACT DB
         Messages.ChildReconnectedMsg m = new Messages.ChildReconnectedMsg();
         database.tell(m, getSelf());
     }
@@ -342,21 +305,11 @@ public class L1 extends Cache{
                 .match(Messages.RefillRequestMsg.class, this::onRefillRequestMsg)
                 .match(Messages.FlushRequestMsg.class, this::onFlushRequestMsg)
                 .match(Messages.CrashMsg.class, this::onCrashMsg)
-                .match(Messages.CheckTimeoutMsg.class, this::onCheckTimeoutMsg)
+                .match(Messages.CheckTimeoutMsg.class, this::onFlushCheckTimeoutMsg)
                 .match(Messages.FlushResponseMsg.class, this::onFlushResponseMsg)
                 .match(Messages.CheckMsg.class, this::onCheckMsg)
                 .match(Messages.RecoveryMsg.class, this::onRecoveryMsg)
                 .match(Messages.ChildReconnectedMsg.class, this::onChildReconnectedMsg)
                 .build();
     }
-//    private void say(String text){
-//        System.out.println(getSelf().path().name()+": "+text);
-//    }
-//    final AbstractActor.Receive crashed() {
-//        return receiveBuilder()
-//                .matchAny(msg -> {})
-//                //.matchAny(msg -> System.out.println(getSelf().path().name() + " ignoring " + msg.getClass().getSimpleName() + " (crashed)"))
-//                .build();
-//    }
-
 }
