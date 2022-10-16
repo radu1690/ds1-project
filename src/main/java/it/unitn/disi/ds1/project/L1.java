@@ -44,11 +44,6 @@ public class L1 extends Cache{
 
 
     protected void onReadRequestMsg(Messages.ReadRequestMsg msg, ActorRef sender) {
-//        System.out.println("Received msg from cache l2");
-//        System.out.println(getSelf().path().name()+ ": received request dataId: "+msg.dataId);
-//        if(checkLocks(msg, getSender())){
-//            return;
-//        }
         Messages.simulateDelay();
         if(sender == null){
             sender = getSender();
@@ -56,14 +51,14 @@ public class L1 extends Cache{
         if(gonnaCrash(Messages.CrashType.ReadRequest, Messages.CrashTime.MessageReceived)){
             return;
         }
-        if(isLocked(msg)){
-            this.requestsActors.put(msg.requestId, sender);
-            pendingReads.add(msg);
-            return;
-        }
-
         //if the message is in cache, simply return it
         if(this.data.get(msg.dataId) != null){
+            //but if a lock is present, delay request
+            if(isLocked(msg)){
+                this.requestsActors.put(msg.requestId, sender);
+                pendingReads.add(msg);
+                return;
+            }
             Messages.ReadResponseMsg response = new Messages.ReadResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
             sender.tell(response, getSelf());
             return;
@@ -82,8 +77,6 @@ public class L1 extends Cache{
         if(gonnaCrash(Messages.CrashType.ReadResponse, Messages.CrashTime.MessageReceived)){
             return;
         }
-//        System.out.println("L1 received read response with dataId "+ msg.dataId + " and value "+msg.value+" from "+getSender().toString());
-
         //check requests, remove it and update the data
         if(requestsActors.get(msg.requestId) != null){
             if(!Objects.equals(data.get(msg.dataId), msg.value)){
@@ -101,9 +94,6 @@ public class L1 extends Cache{
             //finally, send response to requester
             requestsActors.remove(msg.requestId).tell(msg, getSelf());
         }
-//        else{
-//            System.err.println("L1 error: no request with found with id "+ msg.requestId);
-//        }
         gonnaCrash(Messages.CrashType.ReadResponse, Messages.CrashTime.MessageProcessed);
     }
 
@@ -121,7 +111,8 @@ public class L1 extends Cache{
             return;
         }
         //invalidate current data
-        this.data.remove(msg.dataId);
+//        this.data.remove(msg.dataId);
+//        setLock(msg);
         this.requestsActors.put(msg.requestId, sender);
         this.database.tell(msg, getSelf());
 
@@ -134,11 +125,10 @@ public class L1 extends Cache{
         if(gonnaCrash(Messages.CrashType.WriteResponse, Messages.CrashTime.MessageReceived)){
             return;
         }
+//        removeLock(msg);
         if(msg.afterFlush){
             removeLock(msg);
-            if(!isLocked(msg)){
-                processReads();
-            }
+            processReads();
         }
         if(!Objects.equals(data.get(msg.dataId), msg.currentValue)){
             //update if data is different
@@ -197,7 +187,8 @@ public class L1 extends Cache{
             return;
         }
         //invalidate current data
-        this.data.remove(msg.dataId);
+//        this.data.remove(msg.dataId);
+//        setLock(msg);
         this.requestsActors.put(msg.requestId, sender);
         this.database.tell(msg, getSelf());
 
@@ -212,8 +203,8 @@ public class L1 extends Cache{
 //        this.data.remove(msg.dataId);
 //        this.locks.add(msg.dataId);
         if(data.get(msg.dataId)!=null){
-            //data is present, neet to flush and tell children
-            this.setLock(msg);
+            //data is present, need to flush and tell children
+            setLock(msg);
             System.out.println(getSelf().path().name()+ " flushed dataId"+msg.dataId);
             HashSet<ActorRef> checks = new HashSet<ActorRef>();
             flushChecks.put(msg.requestId, checks);

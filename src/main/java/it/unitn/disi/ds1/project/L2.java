@@ -50,15 +50,17 @@ public class L2 extends Cache{
         if(gonnaCrash(Messages.CrashType.ReadRequest, Messages.CrashTime.MessageReceived)){
             return;
         }
-        if(isLocked(msg)){
-            this.requestsActors.put(msg.requestId, sender);
-            pendingReads.add(msg);
-//            req_status.put(msg.requestId, Status.PENDING);
-            return;
-        }
+
 
         //if the message is in cache, simply return it
         if(this.data.get(msg.dataId) != null){
+            //if a lock is present, delay request
+            if(isLocked(msg)){
+                this.requestsActors.put(msg.requestId, sender);
+                pendingReads.add(msg);
+//            req_status.put(msg.requestId, Status.PENDING);
+                return;
+            }
             System.out.println("L2: data present in cache");
             Messages.ReadResponseMsg response = new Messages.ReadResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
             sender.tell(response, getSelf());
@@ -125,7 +127,8 @@ public class L2 extends Cache{
             return;
         }
         //invalidate current data
-        this.data.remove(msg.dataId);
+//        this.data.remove(msg.dataId);
+//        setLock(msg);
         this.requestsActors.put(msg.requestId, getSender());
 
 //        req_status.put(msg.requestId, Status.WAITING_FATHER);
@@ -143,11 +146,10 @@ public class L2 extends Cache{
         if(getSender() == this.database){
             crashedFather = true;
         }
+//        removeLock(msg);
         if(msg.afterFlush){
             removeLock(msg);
-            if(!isLocked(msg)){
-                processReads();
-            }
+            processReads();
         }
         //update the data only if it is present or if the write request was on this cache
 //        System.out.println(getSelf().path().name()+ " Data before write: "+this.data.get(msg.dataId));
@@ -206,7 +208,8 @@ public class L2 extends Cache{
         }
 //        this.locks.add(msg.dataId);
         //invalidate current data
-        this.data.remove(msg.dataId);
+//        this.data.remove(msg.dataId);
+//        setLock(msg);
         this.requestsActors.put(msg.requestId, getSender());
 
         sendMessageAndAddTimeout(msg);
@@ -294,7 +297,7 @@ public class L2 extends Cache{
         Messages.CheckMsg m = new Messages.CheckMsg(msg.dataId, msg.requestId);
         msg.receiver.tell(m, getSelf());
         getContext().system().scheduler().scheduleOnce(
-                Duration.create(100, TimeUnit.MILLISECONDS),  // how frequently generate them
+                Duration.create(200, TimeUnit.MILLISECONDS),  // how frequently generate them
                 getSelf(),                                          // destination actor reference
                 new Messages.CheckTimeoutMsg(msg.dataId, msg.requestId, msg.receiver),             // the message to send
                 getContext().system().dispatcher(),                 // system dispatcher

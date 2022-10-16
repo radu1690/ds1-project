@@ -4,10 +4,7 @@ import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import scala.concurrent.duration.Duration;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public class Cache extends AbstractActor {
@@ -20,8 +17,6 @@ public class Cache extends AbstractActor {
     //for each request, keep track of the actor that sent it in order to respond later on
     protected HashMap<String, ActorRef> requestsActors;
 
-    //in case of critical write, add lock to a data
-//    protected HashSet<Integer> locks;
     //store reads if a critical write is in progress
     protected ArrayList<Messages.Message> pendingReads;
     //type of crash (read/write/flush/etc)
@@ -31,14 +26,12 @@ public class Cache extends AbstractActor {
     //keep track of the id of write requests in order to not write a value two times
     protected Set<String> servedWrites;
     //keep track of data that is currently under a critical write and don't read from it
-    protected HashMap <String, Boolean> locks;
+    protected HashMap <Integer, Boolean> locks;
 
     public Cache(ActorRef database) {
         this.database = database;
         data = new HashMap<>();
         requestsActors = new HashMap<>();
-
-//        locks = new HashSet<>();
         pendingReads = new ArrayList<>();
         nextCrash = Messages.CrashType.NONE;
         nextCrashWhen = Messages.CrashTime.MessageReceived;
@@ -46,25 +39,11 @@ public class Cache extends AbstractActor {
         locks = new HashMap<>();
     }
 
-//    protected boolean checkLocks(Messages.Message msg, ActorRef sender){
-//        if(this.locks.contains(msg.dataId)){
-//            System.out.println(getSelf().path().name()+" lock detected on dataId "+ msg.dataId);
-//            this.pendingRequestMessages.add(msg);
-//            this.requestsActors.put(msg.requestId, sender);
-//            System.out.println(getSelf().path().name()+" added msg to pendingRequestMessages");
-//            return true;
-//        }
-//        return false;
-//    }
-
-
     protected void onCrashMsg(Messages.CrashMsg msg){
         System.out.println(getSelf().path().name()+" received crashMsg");
         nextCrash = msg.nextCrash;
         nextCrashWhen = msg.nextCrashWhen;
     }
-
-
 
     protected void onCheckMsg(Messages.CheckMsg msg){
         say("Received checkMsg from: "+getSender().path().name());
@@ -74,9 +53,9 @@ public class Cache extends AbstractActor {
     }
 
     protected void crash(){
-        System.out.println(getSelf().path().name()+" going into crash state");
+        sayError(" going into crash state");
         getContext().become(crashed());
-
+        //schedule msg to recovery
         getContext().system().scheduler().scheduleOnce(
                 Duration.create(recoverySeconds, TimeUnit.SECONDS),  // how frequently generate them
                 getSelf(),                                          // destination actor reference
@@ -87,17 +66,52 @@ public class Cache extends AbstractActor {
     }
 
     protected void setLock(Messages.Message msg){
-        this.locks.put(msg.requestId, true);
+//        Integer current = locks.get(msg.dataId);
+//        if(current == null){
+//            current = 1;
+//        }else{
+//            current = current + 1;
+//        }
+//        correctLock(msg);
+//        this.locks.put(msg.dataId, current);
+        this.locks.put(msg.dataId, true);
     }
 
     protected void removeLock(Messages.Message msg){
-        this.locks.put(msg.requestId, false);
+//        Integer current = locks.get(msg.dataId);
+//        if(current == null || current == 0){
+//            current = 0;
+//        }else{
+//            current = current - 1;
+//        }
+//        correctLock(msg);
+//        this.locks.put(msg.dataId, current);
+        this.locks.put(msg.dataId, false);
     }
 
     protected boolean isLocked(Messages.Message msg){
-        return locks.get(msg.requestId) != null && locks.get(msg.requestId);
+//        Integer current = locks.get(msg.dataId);
+//        correctLock(msg);
+//        return current != null && current != 0;
+        return locks.get(msg.dataId) != null && locks.get(msg.dataId);
     }
 
+//    private void correctLock(Messages.Message msg){
+//        Integer current = locks.get(msg.dataId);
+//        if(current != null){
+//            if(current < 0){
+//                sayError("Detected invalid lock value");
+//                System.exit(1);
+//            }
+//        }
+//    }
+
+    /**
+     * Returns true if it goes in crash mode, false otherwise.
+     * @param type
+     * @param time
+     * @return
+     */
     protected boolean gonnaCrash(Messages.CrashType type, Messages.CrashTime time){
         if(this.nextCrash == type && this.nextCrashWhen == time){
             this.crash();
@@ -105,7 +119,7 @@ public class Cache extends AbstractActor {
         }
         return false;
     }
-
+    //different for l1 and l2
     protected void onRecoveryMsg(Messages.RecoveryMsg msg){
     }
 
@@ -117,22 +131,25 @@ public class Cache extends AbstractActor {
 
     protected void onReadRequestMsg(Messages.ReadRequestMsg m, ActorRef sender){}
 
-    protected void processReads(){
-        if(pendingReads.isEmpty()){
+    //process pending reads
+    protected void processReads() {
+        if (pendingReads.isEmpty()) {
             return;
         }
-        for(Messages.Message m: pendingReads){
-            pendingReads.remove(m);
-            if(m instanceof Messages.ReadRequestMsg){
-                onReadRequestMsg((Messages.ReadRequestMsg) m, requestsActors.get(m.requestId));
-            }else{
-                System.err.println("WRONG READ MSG???");
-                System.exit(1);
+        Iterator<Messages.Message> i = pendingReads.iterator();
+        while (i.hasNext()) {
+            Messages.Message msg = i.next();
+            if (!isLocked(msg)) {
+                if (msg instanceof Messages.ReadRequestMsg) {
+                    onReadRequestMsg((Messages.ReadRequestMsg) msg, requestsActors.get(msg.requestId));
+                } else {
+                    System.err.println("WRONG READ MSG???");
+                    System.exit(1);
+                }
+                i.remove();
             }
         }
     }
-
-
 
     protected void say(String text){
         System.out.println(getSelf().path().name()+": "+text);
@@ -154,5 +171,4 @@ public class Cache extends AbstractActor {
                 //.matchAny(msg -> System.out.println(getSelf().path().name() + " ignoring " + msg.getClass().getSimpleName() + " (crashed)"))
                 .build();
     }
-
 }

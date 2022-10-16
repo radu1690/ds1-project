@@ -1,7 +1,7 @@
 package it.unitn.disi.ds1.project;
 
 import akka.actor.ActorRef;
-
+import java.util.concurrent.TimeUnit;
 import java.io.Serializable;
 import java.util.Random;
 import java.util.UUID;
@@ -31,9 +31,20 @@ public class Messages {
     public static void simulateDelay(){
 //        System.out.println("SIMULATING DELAY");
 //        System.out.println("BEFORE: "+System.currentTimeMillis());
+
+
         try { Thread.sleep(rnd.nextInt(delayMs)); }
-//        try { Thread.sleep(1500); }
+//        try { Thread.sleep(1000); }
         catch (InterruptedException e) { e.printStackTrace(); }
+
+
+//        try {
+//            TimeUnit.MILLISECONDS.sleep(rnd.nextInt(delayMs));
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+
+
 //        System.out.println("AFTER: "+System.currentTimeMillis());
     }
 

@@ -128,7 +128,7 @@ public class Database extends AbstractActor {
             if(addToPending){
                 this.pendingRequestMessages.add(msg);
                 this.requestsActors.put(msg.requestId, sender);
-//                say(" added msg to pendingRequestMessages");
+                say(" added msg to pendingRequestMessages");
             }
             return true;
         }
@@ -320,7 +320,7 @@ public class Database extends AbstractActor {
         }
         //COMPLETED add check timeout
         getContext().system().scheduler().scheduleOnce(
-                Duration.create(100, TimeUnit.MILLISECONDS),  // how frequently generate them
+                Duration.create(200, TimeUnit.MILLISECONDS),  // how frequently generate them
                 getSelf(),                                          // destination actor reference
                 new Messages.CheckTimeoutMsg(msg.dataId, msg.requestId, null),             // the message to send
                 getContext().system().dispatcher(),                 // system dispatcher
@@ -359,7 +359,7 @@ public class Database extends AbstractActor {
             }
 
             getContext().system().scheduler().scheduleOnce(
-                    Duration.create(100, TimeUnit.MILLISECONDS),  // how frequently generate them
+                    Duration.create(200, TimeUnit.MILLISECONDS),  // how frequently generate them
                     getSelf(),                                          // destination actor reference
                     new Messages.CheckTimeoutMsg(msg.dataId, msg.requestId, null),             // the message to send
                     getContext().system().dispatcher(),                 // system dispatcher
