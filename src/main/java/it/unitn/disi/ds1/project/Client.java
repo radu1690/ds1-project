@@ -17,13 +17,18 @@ public class Client extends AbstractActor {
     //keep track of checkMsg responses
     private HashMap<String, Boolean> checkMsgAnswers;
     private Random random;
+    private ArrayList<Messages.Message> requests;
+    private boolean waitingResponse;
+    private HashMap<String, ActorRef> destinationActors;
 
     public Client() {
-        //requests = new HashSet<>();
+        requests = new ArrayList<>();
         requestsMessages = new HashMap<>();
         random = new Random();
 //        requestReceivers = new HashMap<>();
         checkMsgAnswers = new HashMap<>();
+        waitingResponse = false;
+        destinationActors = new HashMap<>();
     }
 
     static public Props props() {
@@ -35,6 +40,19 @@ public class Client extends AbstractActor {
         public ClientInitializationMsg(List<ActorRef> listL2) {
             this.listL2 = Collections.unmodifiableList(new ArrayList<>(listL2));
         }
+    }
+
+    private void processRequest(){
+        if(waitingResponse || requests.isEmpty()){
+            return;
+        }
+        waitingResponse = true;
+        Messages.Message msg = requests.remove(0);
+        sendMessageAndAddTimeout(msg, msg.requestId, destinationActors.get(msg.requestId));
+    }
+    private void addMsgToQueue(Messages.Message msg, ActorRef destination){
+        destinationActors.put(msg.requestId, destination);
+        requests.add(msg);
     }
 
     private void onClientInitializationMsg(ClientInitializationMsg msg) {
@@ -50,13 +68,17 @@ public class Client extends AbstractActor {
         if(l2 == null){
             l2 = getRandomL2();
         }
-        sendMessageAndAddTimeout(m, m.requestId, l2);
+        addMsgToQueue(m, l2);
+        processRequest();
+//        sendMessageAndAddTimeout(m, m.requestId, l2);
     }
 
     private void onReadResponseMsg(Messages.ReadResponseMsg msg) {
         System.out.println(getSelf().path().name()+" received read response with dataId "+ msg.dataId + " and value "+msg.value+" from "+getSender().toString());
         //requests.remove(msg.requestId);
         requestsMessages.remove(msg.requestId);
+        waitingResponse = false;
+        processRequest();
     }
 
     private void onStartWriteRequestMsg(Messages.StartWriteRequestMsg msg) {
@@ -65,13 +87,17 @@ public class Client extends AbstractActor {
         if(l2 == null){
             l2 = getRandomL2();
         }
-        sendMessageAndAddTimeout(m, m.requestId, l2);
+//        sendMessageAndAddTimeout(m, m.requestId, l2);
+        addMsgToQueue(m, l2);
+        processRequest();
     }
 
     private void onWriteResponseMsg(Messages.WriteResponseMsg msg){
         System.out.println(getSelf().path().name()+" received write response with dataId "+ msg.dataId + " and value " + msg.currentValue);
 //        requests.remove(msg.requestId);
         requestsMessages.remove(msg.requestId);
+        waitingResponse = false;
+        processRequest();
     }
 
     private void onStartCritReadRequestMsg(Messages.StartCritReadRequestMsg msg) {
@@ -80,7 +106,9 @@ public class Client extends AbstractActor {
         if(l2 == null){
             l2 = getRandomL2();
         }
-        sendMessageAndAddTimeout(m, m.requestId, l2);
+//        sendMessageAndAddTimeout(m, m.requestId, l2);
+        addMsgToQueue(m, l2);
+        processRequest();
     }
 
     private void onStartCritWriteRequestMsg(Messages.StartCritWriteRequestMsg msg){
@@ -90,7 +118,9 @@ public class Client extends AbstractActor {
             l2 = getRandomL2();
         }
 //        say("received critWrite request with dataId "+ msg.dataId + " and value " + msg.value);
-        sendMessageAndAddTimeout(m, m.requestId, l2);
+//        sendMessageAndAddTimeout(m, m.requestId, l2);
+        addMsgToQueue(m, l2);
+        processRequest();
     }
 
     private void onSelfTimeoutMsg(Messages.SelfTimeoutMsg msg){
@@ -144,13 +174,13 @@ public class Client extends AbstractActor {
         return listL2.get(index);
     }
 
-    private void sendMessageAndAddTimeout(Messages.Message m, String requestId, ActorRef receiver){
+    private void sendMessageAndAddTimeout(Messages.Message m, String requestId, ActorRef destination){
         requestsMessages.put(requestId, m);
-        receiver.tell(m, getSelf());
+        destination.tell(m, getSelf());
         getContext().system().scheduler().scheduleOnce(
                 Duration.create(400, TimeUnit.MILLISECONDS),  // how frequently generate them
                 getSelf(),                                          // destination actor reference
-                new Messages.SelfTimeoutMsg(m.dataId, requestId, receiver),             // the message to send
+                new Messages.SelfTimeoutMsg(m.dataId, requestId, destination),             // the message to send
                 getContext().system().dispatcher(),                 // system dispatcher
                 getSelf()                                           // source of the message (myself)
         );
