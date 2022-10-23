@@ -103,11 +103,9 @@ public class Messages {
     public static class WriteResponseMsg extends Message {
         //current value of the data (might be different if write has already been served)
         public final Integer currentValue;
-        public final Boolean afterFlush;
-          public WriteResponseMsg(Integer dataId, Integer value, String requestId, Boolean afterFlush) {
+          public WriteResponseMsg(Integer dataId, Integer value, String requestId) {
             super(dataId, requestId);
             this.currentValue = value;
-            this.afterFlush = afterFlush;
         }
     }
 

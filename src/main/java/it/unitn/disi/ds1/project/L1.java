@@ -102,7 +102,7 @@ public class L1 extends Cache{
 
         if(servedWrites.contains(msg.requestId)){
             System.out.println(getSelf().path().name()+ ": Request already served, not writing again");
-            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId, false);
+            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
             sender.tell(response, getSelf());
             return;
         }
@@ -137,10 +137,9 @@ public class L1 extends Cache{
             this.requestsActors.remove(msg.requestId).tell(msg, getSelf());
         }
         //if this was a critical write, remove the lock and process pending reads
-        if(msg.afterFlush){
-            removeLock(msg);
-            processReads();
-        }
+        //remove eventual lock and process pending reads
+        removeLock(msg);
+        processReads();
         gonnaCrash(Messages.CrashType.WriteResponse, Messages.CrashTime.MessageProcessed);
     }
 
@@ -168,7 +167,7 @@ public class L1 extends Cache{
         if(servedWrites.contains(msg.requestId)){
             System.out.println(getSelf().path().name()+ ": Request already served, not writing again");
             Boolean valid = (data.get(msg.dataId).equals(msg.value));
-            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId, false);
+            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
             sender.tell(response, getSelf());
             return;
         }

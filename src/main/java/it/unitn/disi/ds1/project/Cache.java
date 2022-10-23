@@ -133,6 +133,7 @@ public class Cache extends AbstractActor {
                 if (msg instanceof Messages.ReadRequestMsg) {
                     onReadRequestMsg((Messages.ReadRequestMsg) msg, requestsActors.get(msg.requestId));
                 } else {
+                    //critical reads are sent to database which will add them to the pending requests
                     System.err.println("WRONG READ MSG???");
                     System.exit(1);
                 }

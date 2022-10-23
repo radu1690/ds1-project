@@ -84,7 +84,7 @@ public class L2 extends Cache{
         }
         if(servedWrites.contains(msg.requestId)){
             System.out.println(getSelf().path().name()+ ": Request already served, not writing again");
-            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId,false);
+            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
             getSender().tell(response, getSelf());
             return;
         }
@@ -120,11 +120,9 @@ public class L2 extends Cache{
         if(this.requestsActors.get(msg.requestId) != null) {
             this.requestsActors.remove(msg.requestId).tell(msg, getSelf());
         }
-        //if this was a critical write, remove the lock and process pending reads
-        if(msg.afterFlush){
-            removeLock(msg);
-            processReads();
-        }
+        //remove eventual lock and process pending reads
+        removeLock(msg);
+        processReads();
         gonnaCrash(Messages.CrashType.WriteResponse, Messages.CrashTime.MessageProcessed);
     }
 
@@ -145,7 +143,7 @@ public class L2 extends Cache{
         }
         if(servedWrites.contains(msg.requestId)){
             System.out.println(getSelf().path().name()+ ": Request already served, not writing again");
-            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId, false);
+            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
             getSender().tell(response, getSelf());
             return;
         }

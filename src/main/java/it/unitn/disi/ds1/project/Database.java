@@ -171,13 +171,13 @@ public class Database extends AbstractActor {
 
         if(servedWrites.contains(msg.requestId)){
             say("Request already served, not writing again");
-            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId, false);
+            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
             sender.tell(response, getSelf());
             return;
         }
         this.data.put(msg.dataId, msg.value);
         servedWrites.add(msg.requestId);
-        Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId, false);
+        Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
         //send back to sender a writeResponseMsg
         sender.tell(response, getSelf());
         //for all the other caches, send a refillRequestMsg
@@ -214,7 +214,7 @@ public class Database extends AbstractActor {
         }
 
         if(servedWrites.contains(msg.requestId)){
-            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId, false);
+            Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
             sender.tell(response, getSelf());
             return;
         }
@@ -393,7 +393,7 @@ public class Database extends AbstractActor {
     private void sendRefillAfterFlush(Messages.Message msg){
         //for the sender of the crit write, send a write response (no timeout needed, if it crashed, the child/client
         //that started the request will resend it)
-        Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId, true);
+        Messages.WriteResponseMsg response = new Messages.WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
         //for all the other caches, send a refill request
         Messages.RefillRequestMsg refill = new Messages.RefillRequestMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
 //        this.critWriteFlushes.remove(msg.requestId);
