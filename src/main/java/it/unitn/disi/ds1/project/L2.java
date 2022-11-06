@@ -191,7 +191,7 @@ public class L2 extends Cache{
         }else{
             this.fatherL1.tell(m, getSelf());
             getContext().system().scheduler().scheduleOnce(
-                    Duration.create(400, TimeUnit.MILLISECONDS),  // how frequently generate them
+                    Duration.create(Messages.msgTimeoutMs, TimeUnit.MILLISECONDS),  // how frequently generate them
                     getSelf(),                                          // destination actor reference
                     new Messages.SelfTimeoutMsg(m.dataId, m.requestId, this.fatherL1),             // the message to send
                     getContext().system().dispatcher(),                 // system dispatcher
@@ -212,7 +212,7 @@ public class L2 extends Cache{
             Messages.CheckMsg m = new Messages.CheckMsg(msg.dataId, msg.requestId);
             msg.receiver.tell(m, getSelf());
             getContext().system().scheduler().scheduleOnce(
-                    Duration.create(200, TimeUnit.MILLISECONDS),  // how frequently generate them
+                    Duration.create(Messages.checkTimeoutMs, TimeUnit.MILLISECONDS),  // how frequently generate them
                     getSelf(),                                          // destination actor reference
                     new Messages.CheckTimeoutMsg(msg.dataId, msg.requestId, msg.receiver),             // the message to send
                     getContext().system().dispatcher(),                 // system dispatcher
@@ -258,7 +258,7 @@ public class L2 extends Cache{
 
     private void refreshSelfTimeout(String requestId, ActorRef receiver){
         getContext().system().scheduler().scheduleOnce(
-                Duration.create(400, TimeUnit.MILLISECONDS),  // how frequently generate them
+                Duration.create(Messages.msgTimeoutMs, TimeUnit.MILLISECONDS),  // how frequently generate them
                 getSelf(),                                          // destination actor reference
                 new Messages.SelfTimeoutMsg(null, requestId, receiver),             // the message to send
                 getContext().system().dispatcher(),                 // system dispatcher
@@ -273,8 +273,10 @@ public class L2 extends Cache{
         requestsMessages = new HashMap<>();
         pendingReads = new ArrayList<>();
         nextCrash = Messages.CrashType.NONE;
+        nextCrashWhen = Messages.CrashTime.NONE;
         servedWrites = new HashSet<>();
-        locks = new HashMap<>();
+//        locks = new HashMap<>();
+        locks = new HashSet<>();
         checkMsgAnswers = new HashMap<>();
 
         getContext().become(createReceive());

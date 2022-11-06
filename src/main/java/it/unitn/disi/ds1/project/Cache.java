@@ -26,7 +26,9 @@ public class Cache extends AbstractActor {
     //keep track of the id of write requests in order to not write a value two times
     protected Set<String> servedWrites;
     //keep track of data that is currently under a critical write and don't read from it
-    protected HashMap <Integer, Boolean> locks;
+//    protected HashMap <Integer, Boolean> locks;
+    protected HashSet<Integer> locks;
+
 
     public Cache(ActorRef database) {
         this.database = database;
@@ -34,9 +36,10 @@ public class Cache extends AbstractActor {
         requestsActors = new HashMap<>();
         pendingReads = new ArrayList<>();
         nextCrash = Messages.CrashType.NONE;
-        nextCrashWhen = Messages.CrashTime.MessageReceived;
+        nextCrashWhen = Messages.CrashTime.NONE;
         servedWrites = new HashSet<>();
-        locks = new HashMap<>();
+//        locks = new HashMap<>();
+        locks = new HashSet<>();
     }
 
     protected void onCrashMsg(Messages.CrashMsg msg){
@@ -54,6 +57,7 @@ public class Cache extends AbstractActor {
 
     protected void crash(){
         sayError(" going into crash state");
+        data = new HashMap<>();
         getContext().become(crashed());
         //schedule msg to recovery
         getContext().system().scheduler().scheduleOnce(
@@ -66,34 +70,18 @@ public class Cache extends AbstractActor {
     }
 
     protected void setLock(Messages.Message msg){
-//        Integer current = locks.get(msg.dataId);
-//        if(current == null){
-//            current = 1;
-//        }else{
-//            current = current + 1;
-//        }
-//        correctLock(msg);
-//        this.locks.put(msg.dataId, current);
-        this.locks.put(msg.dataId, true);
+//        this.locks.put(msg.dataId, true);
+        this.locks.add(msg.dataId);
     }
 
     protected void removeLock(Messages.Message msg){
-//        Integer current = locks.get(msg.dataId);
-//        if(current == null || current == 0){
-//            current = 0;
-//        }else{
-//            current = current - 1;
-//        }
-//        correctLock(msg);
-//        this.locks.put(msg.dataId, current);
-        this.locks.put(msg.dataId, false);
+//        this.locks.put(msg.dataId, false);
+        this.locks.remove(msg.dataId);
     }
 
     protected boolean isLocked(Messages.Message msg){
-//        Integer current = locks.get(msg.dataId);
-//        correctLock(msg);
-//        return current != null && current != 0;
-        return locks.get(msg.dataId) != null && locks.get(msg.dataId);
+//        return locks.get(msg.dataId) != null && locks.get(msg.dataId);
+        return locks.contains(msg.dataId);
     }
 
     /**
@@ -110,13 +98,14 @@ public class Cache extends AbstractActor {
         return false;
     }
     //different for l1 and l2
-    protected void onRecoveryMsg(Messages.RecoveryMsg msg){
-    }
+    protected void onRecoveryMsg(Messages.RecoveryMsg msg){}
 
     protected void onCheckConsistencyMsg(Messages.CheckConsistencyMsg msg){
 //        if(data.get(msg.dataId)!=null){
             System.out.println(getSelf().path().name()+ " dataId: "+msg.dataId + ", value: "+data.get(msg.dataId));
 //        }
+        Messages.CheckConsistencyResponseMsg response = new Messages.CheckConsistencyResponseMsg(msg.dataId, data.get(msg.dataId));
+        getSender().tell(response, getSelf());
     }
 
     protected void onReadRequestMsg(Messages.ReadRequestMsg m, ActorRef sender){}
@@ -158,8 +147,12 @@ public class Cache extends AbstractActor {
     final AbstractActor.Receive crashed() {
         return receiveBuilder()
                 .match(Messages.RecoveryMsg.class, this::onRecoveryMsg)
+                .match(Messages.CheckConsistencyMsg.class, this::onCheckConsistencyMsg)
                 .matchAny(msg -> {})
                 //.matchAny(msg -> System.out.println(getSelf().path().name() + " ignoring " + msg.getClass().getSimpleName() + " (crashed)"))
                 .build();
     }
+
+
+
 }

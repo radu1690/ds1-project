@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
 
 public class Main {
     final static int N_L1 = 3;
@@ -22,88 +23,11 @@ public class Main {
         initialize();
         inputContinue();
 
-        testCriticalWrite();
-
-//        System.out.println("WRITE VALUE 22 IN ID 0 TO A NODE THAT CRASHES");
-//        Messages.CrashMsg crashMsg = new Messages.CrashMsg(Messages.CrashType.ReadRequest, Messages.CrashTime.MessageReceived);
-//        cacheL2.get(0).tell(crashMsg, ActorRef.noSender());
-////        inputContinue();
-//        Messages.StartWriteRequestMsg w1 = new Messages.StartWriteRequestMsg(0, 22, cacheL2.get(0));
-//        clients.get(0).tell(w1, ActorRef.noSender());
-//
-//        inputContinue();
-//
-//
-//        checkEventualConsistency(0);
-//
-//        inputContinue();
-//
-//        System.out.println("READ ID 0 FROM CRASHED CACHE");
-//        Messages.StartReadRequestMsg r1 = new Messages.StartReadRequestMsg(0, cacheL2.get(0));
-//        clients.get(0).tell(r1, ActorRef.noSender());
-//
-////        Messages.StartReadRequestMsg r2 = new Messages.StartReadRequestMsg(0, cacheL2.get(2));
-////        clients.get(0).tell(r2, ActorRef.noSender());
-//
-//        inputContinue();
-//        System.out.println("TELL "+cacheL2.get(4).path().name()+" TO WRITE VALUE 33 IN ID 0");
-//        Messages.StartWriteRequestMsg w2 = new Messages.StartWriteRequestMsg(0, 33, cacheL2.get(4));
-//        clients.get(0).tell(w2, ActorRef.noSender());
-//
-//        inputContinue();
-//
-//        checkEventualConsistency(0);
-//
-//        inputContinue();
-//        System.out.println("TELL "+cacheL2.get(4).path().name()+" TO WRITE VALUE 99 IN ID 0");
-//        Messages.StartWriteRequestMsg w3 = new Messages.StartWriteRequestMsg(0, 99, cacheL2.get(4));
-//        clients.get(0).tell(w3, ActorRef.noSender());
-//
-//        inputContinue();
-//
-//        checkEventualConsistency(0);
-//
-//        inputContinue();
-//
-//
-//        System.out.println("TELL "+cacheL2.get(5).path().name()+" TO CRITICAL READ ID 0");
-//        Messages.StartCritReadRequestMsg cr1 = new Messages.StartCritReadRequestMsg(0, cacheL2.get(5));
-//        clients.get(2).tell(cr1, ActorRef.noSender());
-//
-//        inputContinue();
-//        System.out.println("TELL "+cacheL2.get(5).path().name()+" TO CRITICAL WRITE VALUE 1690 IN ID 0");
-//        Messages.StartCritWriteRequestMsg wc1 = new Messages.StartCritWriteRequestMsg(0, 1690, cacheL2.get(5));
-//        clients.get(2).tell(wc1, ActorRef.noSender());
-//
-//
-//
-//
-//        inputContinue();
-//        checkEventualConsistency(0);
-//
-//        System.out.println("CRASH ON L1 READ");
-//        Messages.CrashMsg crashL1 = new Messages.CrashMsg(Messages.CrashType.ReadRequest, Messages.CrashTime.MessageReceived);
-//        cacheL1.get(0).tell(crashL1, ActorRef.noSender());
-//        inputContinue();
-//        Messages.StartReadRequestMsg readCrashL1 = new Messages.StartReadRequestMsg(0, cacheL2.get(0));
-//        clients.get(0).tell(readCrashL1, ActorRef.noSender());
-//
-//        inputContinue();
-//
-//        System.out.println("CRASH ON L1 WRITE");
-//        crashL1 = new Messages.CrashMsg(Messages.CrashType.WriteRequest, Messages.CrashTime.MessageReceived);
-//        cacheL1.get(0).tell(crashL1, ActorRef.noSender());
-//
-//        inputContinue();
-//
-//        Messages.StartWriteRequestMsg writeCrashL1 = new Messages.StartWriteRequestMsg(0, 15, cacheL2.get(0));
-//        clients.get(0).tell(writeCrashL1, ActorRef.noSender());
-//
-//
-//        inputContinue();
-//
-//        checkEventualConsistency(0);
-
+//        testCriticalWrite();
+//        testDoubleCrash();
+//        testCritReadCrash();
+        testConcurrentWrites();
+//        testConfirmedWrite();
 
     }
 
@@ -154,6 +78,103 @@ public class Main {
         }
 
         System.out.println("INITIALIZED");
+    }
+
+    void testConfirmedWrite(){
+        //for this test, put client timeout of 10 seconds
+
+
+        Messages.StartWriteRequestMsg w1 = new Messages.StartWriteRequestMsg(0, 1, cacheL2.get(0));
+        clients.get(0).tell(w1, ActorRef.noSender());
+        Messages.StartWriteRequestMsg w2 = new Messages.StartWriteRequestMsg(0, 2, cacheL2.get(1));
+        clients.get(1).tell(w2, ActorRef.noSender());
+        Messages.StartWriteRequestMsg w3 = new Messages.StartWriteRequestMsg(0, 3, cacheL2.get(2));
+        clients.get(1).tell(w3, ActorRef.noSender());
+        System.out.println("First 3 writes sent");
+        inputContinue();
+
+        Messages.CrashMsg cr1 = new Messages.CrashMsg(Messages.CrashType.WriteResponse, Messages.CrashTime.MessageReceived);
+        cacheL1.get(0).tell(cr1, ActorRef.noSender());
+        System.out.println("Sent crash msg");
+
+        inputContinue();
+
+
+        Messages.StartWriteRequestMsg w4 = new Messages.StartWriteRequestMsg(0, 4, cacheL2.get(0));
+        clients.get(1).tell(w4, ActorRef.noSender());
+        Messages.StartWriteRequestMsg w5 = new Messages.StartWriteRequestMsg(0, 5, cacheL2.get(4));
+        clients.get(4).tell(w5, ActorRef.noSender());
+
+        System.out.println("4th write");
+        inputContinue();
+
+        checkEventualConsistency(0);
+
+        inputContinue();
+    }
+
+    void testDoubleCrash(){
+        Messages.StartWriteRequestMsg w1 = new Messages.StartWriteRequestMsg(0, 1, cacheL2.get(0));
+        Messages.StartWriteRequestMsg w2 = new Messages.StartWriteRequestMsg(0, 2, cacheL2.get(3));
+        clients.get(0).tell(w1, ActorRef.noSender());
+        clients.get(1).tell(w2, ActorRef.noSender());
+        System.out.println("First 2 writes sent!");
+
+        inputContinue();
+
+        Messages.CrashMsg cr1 = new Messages.CrashMsg(Messages.CrashType.CritWriteRequest, Messages.CrashTime.MessageProcessed);
+        Messages.CrashMsg cr2 = new Messages.CrashMsg(Messages.CrashType.FlushRequest, Messages.CrashTime.MessageReceived);
+        cacheL1.get(0).tell(cr1, ActorRef.noSender());
+        cacheL1.get(1).tell(cr2, ActorRef.noSender());
+        System.out.println("Crash Messages sent!");
+
+        inputContinue();
+        Messages.StartCritWriteRequestMsg wc1 = new Messages.StartCritWriteRequestMsg(0, 1690, cacheL2.get(0));
+        clients.get(0).tell(wc1, ActorRef.noSender());
+        System.out.println("Write Message sent!");
+        inputContinue();
+
+        checkEventualConsistency(0);
+        inputContinue();
+
+    }
+
+    void testCritReadCrash(){
+        Messages.StartWriteRequestMsg w1 = new Messages.StartWriteRequestMsg(0, 1, cacheL2.get(0));
+        Messages.StartWriteRequestMsg w2 = new Messages.StartWriteRequestMsg(0, 2, cacheL2.get(1));
+        Messages.StartWriteRequestMsg w3 = new Messages.StartWriteRequestMsg(0, 3, cacheL2.get(2));
+        clients.get(0).tell(w1, ActorRef.noSender());
+        clients.get(1).tell(w2, ActorRef.noSender());
+        clients.get(2).tell(w3, ActorRef.noSender());
+        Messages.CrashMsg cr1 = new Messages.CrashMsg(Messages.CrashType.ReadResponse, Messages.CrashTime.MessageReceived);
+        cacheL1.get(0).tell(cr1, ActorRef.noSender());
+        System.out.println("Writes and crash sent");
+        inputContinue();
+        Messages.StartWriteRequestMsg w4 = new Messages.StartWriteRequestMsg(0, 4, cacheL2.get(4));
+        Messages.StartCritReadRequestMsg R1 = new Messages.StartCritReadRequestMsg(0, cacheL2.get(2));
+        clients.get(5).tell(w4, ActorRef.noSender());
+        clients.get(4).tell(R1, ActorRef.noSender());
+        System.out.println("Crit read sent");
+        inputContinue();
+
+        checkEventualConsistency(0);
+        inputContinue();
+
+    }
+
+    void testConcurrentWrites(){
+        Random rand = new Random(System.currentTimeMillis());
+        for(int i = 0; i<5; i++){
+            for (ActorRef client : clients) {
+                Messages.StartWriteRequestMsg w1 = new Messages.StartWriteRequestMsg(0, rand.nextInt(100));
+                client.tell(w1, ActorRef.noSender());
+            }
+        }
+
+        inputContinue();
+
+        checkEventualConsistency(0);
+        inputContinue();
     }
 
     void testCriticalWrite(){
@@ -274,11 +295,11 @@ public class Main {
         System.out.println("CHECKING EVENTUAL CONSISTENCY");
         Messages.CheckConsistencyMsg msg = new Messages.CheckConsistencyMsg(dataId);
         database.tell(msg, ActorRef.noSender());
-        for(ActorRef cache: cacheL1){
-            cache.tell(msg, ActorRef.noSender());
-        }
-        for(ActorRef cache: cacheL2){
-            cache.tell(msg, ActorRef.noSender());
-        }
+//        for(ActorRef cache: cacheL1){
+//            cache.tell(msg, ActorRef.noSender());
+//        }
+//        for(ActorRef cache: cacheL2){
+//            cache.tell(msg, ActorRef.noSender());
+//        }
     }
 }

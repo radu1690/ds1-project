@@ -196,7 +196,7 @@ public class L1 extends Cache{
             }
             //add timeout on children
             getContext().system().scheduler().scheduleOnce(
-                    Duration.create(200, TimeUnit.MILLISECONDS),  // how frequently generate them
+                    Duration.create(Messages.checkTimeoutMs, TimeUnit.MILLISECONDS),  // how frequently generate them
                     getSelf(),                                          // destination actor reference
                     new Messages.CheckTimeoutMsg(msg.dataId, msg.requestId, null),             // the message to send
                     getContext().system().dispatcher(),                 // system dispatcher
@@ -230,7 +230,8 @@ public class L1 extends Cache{
         }
         //if someone crashed, add it to crashedCaches
         crashedCaches.addAll(checks);
-        System.err.println("CRASHED DETECTED "+checks);
+//        System.err.println("CRASHED DETECTED "+checks);
+        sayError("Crashed children detected: "+checks);
         //respond to db
         Messages.FlushResponseMsg flushResponse = new Messages.FlushResponseMsg(msg.dataId, msg.requestId);
         this.database.tell(flushResponse, getSelf());
@@ -243,7 +244,7 @@ public class L1 extends Cache{
         }
         //update the data only if it is present
         if(this.data.get(msg.dataId) != null || this.requestsActors.get(msg.requestId) != null){
-            System.out.println(getSelf().path().name()+ ": refilled dataId "+msg.dataId + " with value " + msg.value+", old value was: "+data.get(msg.dataId));
+            say(": refilled dataId "+msg.dataId + " with value " + msg.value+", old value was: "+data.get(msg.dataId));
             this.data.put(msg.dataId, msg.value);
             //refill children
             for(ActorRef l2 : cacheL2){
@@ -270,8 +271,10 @@ public class L1 extends Cache{
         requestsActors = new HashMap<>();
         pendingReads = new ArrayList<>();
         nextCrash = Messages.CrashType.NONE;
+        nextCrashWhen = Messages.CrashTime.NONE;
         servedWrites = new HashSet<>();
-        locks = new HashMap<>();
+//        locks = new HashMap<>();
+        locks = new HashSet<>();
         getContext().become(createReceive());
 
         //CONTACT DB

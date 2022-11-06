@@ -9,7 +9,9 @@ import java.util.UUID;
 public class Messages {
 
     private static final Random rnd = new Random();
-    private static final int delayMs = 30;
+    private static final int delayMs = 20;
+    public static final int checkTimeoutMs = 200;
+    public static final int msgTimeoutMs = 400;
     public enum CrashType {
         NONE,
         ReadRequest,
@@ -23,6 +25,7 @@ public class Messages {
     }
 
     public enum CrashTime {
+        NONE,
         MessageReceived,
         MessageProcessed,
         Custom
@@ -192,6 +195,13 @@ public class Messages {
     public static class CheckConsistencyMsg extends Message {
         public CheckConsistencyMsg(Integer dataId) {
             super(dataId, null);
+        }
+    }
+    public static class CheckConsistencyResponseMsg extends Message {
+        public Integer value;
+        public CheckConsistencyResponseMsg(Integer dataId, Integer value) {
+            super(dataId, null);
+            this.value = value;
         }
     }
 
