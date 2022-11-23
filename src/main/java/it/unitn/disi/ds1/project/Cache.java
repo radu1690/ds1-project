@@ -2,6 +2,7 @@ package it.unitn.disi.ds1.project;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
+import it.unitn.disi.ds1.project.Messages.*;
 import scala.concurrent.duration.Duration;
 
 import java.util.*;
@@ -18,11 +19,11 @@ public class Cache extends AbstractActor {
     protected HashMap<String, ActorRef> requestsActors;
 
     //store reads if a critical write is in progress
-    protected ArrayList<Messages.Message> pendingReads;
+    protected ArrayList<Message> pendingReads;
     //type of crash (read/write/flush/etc)
-    protected Messages.CrashType nextCrash;
+    protected Common.CrashType nextCrash;
     //when to crash (when receiving a request / after processing it / custom if needed)
-    protected Messages.CrashTime nextCrashWhen;
+    protected Common.CrashTime nextCrashWhen;
     //keep track of the id of write requests in order to not write a value two times
     protected Set<String> servedWrites;
     //keep track of data that is currently under a critical write and don't read from it
@@ -35,23 +36,23 @@ public class Cache extends AbstractActor {
         data = new HashMap<>();
         requestsActors = new HashMap<>();
         pendingReads = new ArrayList<>();
-        nextCrash = Messages.CrashType.NONE;
-        nextCrashWhen = Messages.CrashTime.NONE;
+        nextCrash = Common.CrashType.NONE;
+        nextCrashWhen = Common.CrashTime.NONE;
         servedWrites = new HashSet<>();
 //        locks = new HashMap<>();
         locks = new HashSet<>();
     }
 
-    protected void onCrashMsg(Messages.CrashMsg msg){
+    protected void onCrashMsg(CrashMsg msg){
         say(" received crashMsg");
         nextCrash = msg.nextCrash;
         nextCrashWhen = msg.nextCrashWhen;
     }
 
-    protected void onCheckMsg(Messages.CheckMsg msg){
+    protected void onCheckMsg(CheckMsg msg){
         say("Received checkMsg from: "+getSender().path().name());
         ActorRef sender = getSender();
-        Messages.CheckResponseMsg m = new Messages.CheckResponseMsg(msg.dataId, msg.requestId);
+        CheckResponseMsg m = new CheckResponseMsg(msg.dataId, msg.requestId);
         sender.tell(m, getSelf());
     }
 
@@ -63,23 +64,23 @@ public class Cache extends AbstractActor {
         getContext().system().scheduler().scheduleOnce(
                 Duration.create(recoverySeconds, TimeUnit.SECONDS),  // how frequently generate them
                 getSelf(),                                          // destination actor reference
-                new Messages.RecoveryMsg(),             // the message to send
+                new RecoveryMsg(),             // the message to send
                 getContext().system().dispatcher(),                 // system dispatcher
                 getSelf()                                           // source of the message (myself)
         );
     }
 
-    protected void setLock(Messages.Message msg){
+    protected void setLock(Message msg){
 //        this.locks.put(msg.dataId, true);
         this.locks.add(msg.dataId);
     }
 
-    protected void removeLock(Messages.Message msg){
+    protected void removeLock(Message msg){
 //        this.locks.put(msg.dataId, false);
         this.locks.remove(msg.dataId);
     }
 
-    protected boolean isLocked(Messages.Message msg){
+    protected boolean isLocked(Message msg){
 //        return locks.get(msg.dataId) != null && locks.get(msg.dataId);
         return locks.contains(msg.dataId);
     }
@@ -90,7 +91,7 @@ public class Cache extends AbstractActor {
      * @param time
      * @return
      */
-    protected boolean gonnaCrash(Messages.CrashType type, Messages.CrashTime time){
+    protected boolean gonnaCrash(Common.CrashType type, Common.CrashTime time){
         if(this.nextCrash == type && this.nextCrashWhen == time){
             this.crash();
             return true;
@@ -98,29 +99,29 @@ public class Cache extends AbstractActor {
         return false;
     }
     //different for l1 and l2
-    protected void onRecoveryMsg(Messages.RecoveryMsg msg){}
+    protected void onRecoveryMsg(RecoveryMsg msg){}
 
-    protected void onCheckConsistencyMsg(Messages.CheckConsistencyMsg msg){
+    protected void onCheckConsistencyMsg(CheckConsistencyMsg msg){
 //        if(data.get(msg.dataId)!=null){
             System.out.println(getSelf().path().name()+ " dataId: "+msg.dataId + ", value: "+data.get(msg.dataId));
 //        }
-        Messages.CheckConsistencyResponseMsg response = new Messages.CheckConsistencyResponseMsg(msg.dataId, data.get(msg.dataId));
+        CheckConsistencyResponseMsg response = new CheckConsistencyResponseMsg(msg.dataId, data.get(msg.dataId));
         getSender().tell(response, getSelf());
     }
 
-    protected void onReadRequestMsg(Messages.ReadRequestMsg m, ActorRef sender){}
+    protected void onReadRequestMsg(ReadRequestMsg m, ActorRef sender){}
 
     //process pending reads
     protected void processReads() {
         if (pendingReads.isEmpty()) {
             return;
         }
-        Iterator<Messages.Message> i = pendingReads.iterator();
+        Iterator<Message> i = pendingReads.iterator();
         while (i.hasNext()) {
-            Messages.Message msg = i.next();
+            Message msg = i.next();
             if (!isLocked(msg)) {
-                if (msg instanceof Messages.ReadRequestMsg) {
-                    onReadRequestMsg((Messages.ReadRequestMsg) msg, requestsActors.get(msg.requestId));
+                if (msg instanceof ReadRequestMsg) {
+                    onReadRequestMsg((ReadRequestMsg) msg, requestsActors.get(msg.requestId));
                 } else {
                     //critical reads are sent to database which will add them to the pending requests
                     System.err.println("WRONG READ MSG???");
@@ -146,8 +147,8 @@ public class Cache extends AbstractActor {
 
     final AbstractActor.Receive crashed() {
         return receiveBuilder()
-                .match(Messages.RecoveryMsg.class, this::onRecoveryMsg)
-                .match(Messages.CheckConsistencyMsg.class, this::onCheckConsistencyMsg)
+                .match(RecoveryMsg.class, this::onRecoveryMsg)
+                .match(CheckConsistencyMsg.class, this::onCheckConsistencyMsg)
                 .matchAny(msg -> {})
                 //.matchAny(msg -> System.out.println(getSelf().path().name() + " ignoring " + msg.getClass().getSimpleName() + " (crashed)"))
                 .build();

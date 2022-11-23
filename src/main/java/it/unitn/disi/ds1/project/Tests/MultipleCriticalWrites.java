@@ -1,16 +1,21 @@
-package it.unitn.disi.ds1.project;
+package it.unitn.disi.ds1.project.Tests;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import it.unitn.disi.ds1.project.*;
+import it.unitn.disi.ds1.project.Messages.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
-import it.unitn.disi.ds1.project.Messages.*;
 
-public class Main {
+/**
+ * This file tests multiple and concurrent critical writes, reads and normal writes with a crash that leaves the system
+ * in a consistent state.
+ */
+public class MultipleCriticalWrites {
     final static int N_L1 = 3;
     final static int N_L2 = 3;
     final static int N_CLIENTS = 6;
@@ -20,15 +25,11 @@ public class Main {
     List<ActorRef> cacheL2;
     ArrayList<ActorRef> clients;
     final static ActorSystem system = ActorSystem.create("caches");
-    public Main(){
+    public MultipleCriticalWrites(){
         initialize();
         inputContinue();
 
-//        testCriticalWrite();
-//        testDoubleCrash();
-        testCritReadCrash();
-//        testConcurrentWrites();
-//        testConfirmedWrite();
+        testCriticalWrite();
 
     }
 
@@ -81,105 +82,9 @@ public class Main {
         System.out.println("INITIALIZED");
     }
 
-    void testConfirmedWrite(){
-        //for this test, put client timeout of 10 seconds
 
-
-        StartWriteRequestMsg w1 = new StartWriteRequestMsg(0, 1, cacheL2.get(0));
-        clients.get(0).tell(w1, ActorRef.noSender());
-        StartWriteRequestMsg w2 = new StartWriteRequestMsg(0, 2, cacheL2.get(1));
-        clients.get(1).tell(w2, ActorRef.noSender());
-        StartWriteRequestMsg w3 = new StartWriteRequestMsg(0, 3, cacheL2.get(2));
-        clients.get(1).tell(w3, ActorRef.noSender());
-        System.out.println("First 3 writes sent");
-        inputContinue();
-
-        CrashMsg cr1 = new CrashMsg(Common.CrashType.WriteResponse, Common.CrashTime.MessageReceived);
-        cacheL1.get(0).tell(cr1, ActorRef.noSender());
-        System.out.println("Sent crash msg");
-
-        inputContinue();
-
-
-        StartWriteRequestMsg w4 = new StartWriteRequestMsg(0, 4, cacheL2.get(0));
-        clients.get(1).tell(w4, ActorRef.noSender());
-        StartWriteRequestMsg w5 = new StartWriteRequestMsg(0, 5, cacheL2.get(4));
-        clients.get(4).tell(w5, ActorRef.noSender());
-
-        System.out.println("4th write");
-        inputContinue();
-
-        checkEventualConsistency(0);
-
-        inputContinue();
-    }
-
-    void testDoubleCrash(){
-        StartWriteRequestMsg w1 = new StartWriteRequestMsg(0, 1, cacheL2.get(0));
-        StartWriteRequestMsg w2 = new StartWriteRequestMsg(0, 2, cacheL2.get(3));
-        clients.get(0).tell(w1, ActorRef.noSender());
-        clients.get(1).tell(w2, ActorRef.noSender());
-        System.out.println("First 2 writes sent!");
-
-        inputContinue();
-
-        CrashMsg cr1 = new CrashMsg(Common.CrashType.CritWriteRequest, Common.CrashTime.MessageProcessed);
-        CrashMsg cr2 = new CrashMsg(Common.CrashType.FlushRequest, Common.CrashTime.MessageReceived);
-        cacheL1.get(0).tell(cr1, ActorRef.noSender());
-        cacheL1.get(1).tell(cr2, ActorRef.noSender());
-        System.out.println("Crash Messages sent!");
-
-        inputContinue();
-        StartCritWriteRequestMsg wc1 = new StartCritWriteRequestMsg(0, 1690, cacheL2.get(0));
-        clients.get(0).tell(wc1, ActorRef.noSender());
-        System.out.println("Write Message sent!");
-        inputContinue();
-
-        checkEventualConsistency(0);
-        inputContinue();
-
-    }
-
-    void testCritReadCrash(){
-        StartWriteRequestMsg w1 = new StartWriteRequestMsg(0, 1, cacheL2.get(0));
-        StartWriteRequestMsg w2 = new StartWriteRequestMsg(0, 2, cacheL2.get(1));
-        StartWriteRequestMsg w3 = new StartWriteRequestMsg(0, 3, cacheL2.get(2));
-        clients.get(0).tell(w1, ActorRef.noSender());
-        clients.get(1).tell(w2, ActorRef.noSender());
-        clients.get(2).tell(w3, ActorRef.noSender());
-        CrashMsg cr1 = new CrashMsg(Common.CrashType.ReadResponse, Common.CrashTime.MessageReceived);
-        cacheL1.get(0).tell(cr1, ActorRef.noSender());
-        System.out.println("Writes and crash sent");
-        inputContinue();
-        StartWriteRequestMsg w4 = new StartWriteRequestMsg(0, 4, cacheL2.get(4));
-        StartCritReadRequestMsg R1 = new StartCritReadRequestMsg(0, cacheL2.get(2));
-        clients.get(5).tell(w4, ActorRef.noSender());
-        clients.get(4).tell(R1, ActorRef.noSender());
-        System.out.println("Crit read sent");
-        inputContinue();
-
-        checkEventualConsistency(0);
-        inputContinue();
-
-    }
-
-    void testConcurrentWrites(){
-        Random rand = new Random(System.currentTimeMillis());
-        for(int i = 0; i<5; i++){
-            for (ActorRef client : clients) {
-                StartWriteRequestMsg w1 = new StartWriteRequestMsg(0, rand.nextInt(100));
-                client.tell(w1, ActorRef.noSender());
-            }
-        }
-
-        inputContinue();
-
-        checkEventualConsistency(0);
-        inputContinue();
-    }
 
     void testCriticalWrite(){
-        System.out.println("TELL "+cacheL2.get(5).path().name()+" TO CRITICAL WRITE VALUE 1690 IN ID 0");
         StartCritWriteRequestMsg wc1 = new StartCritWriteRequestMsg(0, 1690, cacheL2.get(5));
         StartCritWriteRequestMsg wc2 = new StartCritWriteRequestMsg(0, 1337, cacheL2.get(0));
         StartCritWriteRequestMsg wc3 = new StartCritWriteRequestMsg(0, 420, cacheL2.get(2));
@@ -276,7 +181,7 @@ public class Main {
     }
 
     public static void main(String[] args){
-        Main m = new Main();
+        MultipleCriticalWrites m = new MultipleCriticalWrites();
 
         inputContinue();
         system.terminate();
@@ -296,11 +201,5 @@ public class Main {
         System.out.println("CHECKING EVENTUAL CONSISTENCY");
         CheckConsistencyMsg msg = new CheckConsistencyMsg(dataId);
         database.tell(msg, ActorRef.noSender());
-//        for(ActorRef cache: cacheL1){
-//            cache.tell(msg, ActorRef.noSender());
-//        }
-//        for(ActorRef cache: cacheL2){
-//            cache.tell(msg, ActorRef.noSender());
-//        }
     }
 }
