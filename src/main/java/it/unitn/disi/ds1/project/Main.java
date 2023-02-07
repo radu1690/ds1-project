@@ -25,10 +25,8 @@ public class Main {
         inputContinue();
 
 //        testCriticalWrite();
-//        testDoubleCrash();
-        testCritReadCrash();
+//        testCritReadCrash();
 //        testConcurrentWrites();
-//        testConfirmedWrite();
 
     }
 
@@ -79,65 +77,6 @@ public class Main {
         }
 
         System.out.println("INITIALIZED");
-    }
-
-    void testConfirmedWrite(){
-        //for this test, put client timeout of 10 seconds
-
-
-        StartWriteRequestMsg w1 = new StartWriteRequestMsg(0, 1, cacheL2.get(0));
-        clients.get(0).tell(w1, ActorRef.noSender());
-        StartWriteRequestMsg w2 = new StartWriteRequestMsg(0, 2, cacheL2.get(1));
-        clients.get(1).tell(w2, ActorRef.noSender());
-        StartWriteRequestMsg w3 = new StartWriteRequestMsg(0, 3, cacheL2.get(2));
-        clients.get(1).tell(w3, ActorRef.noSender());
-        System.out.println("First 3 writes sent");
-        inputContinue();
-
-        CrashMsg cr1 = new CrashMsg(Common.CrashType.WriteResponse, Common.CrashTime.MessageReceived);
-        cacheL1.get(0).tell(cr1, ActorRef.noSender());
-        System.out.println("Sent crash msg");
-
-        inputContinue();
-
-
-        StartWriteRequestMsg w4 = new StartWriteRequestMsg(0, 4, cacheL2.get(0));
-        clients.get(1).tell(w4, ActorRef.noSender());
-        StartWriteRequestMsg w5 = new StartWriteRequestMsg(0, 5, cacheL2.get(4));
-        clients.get(4).tell(w5, ActorRef.noSender());
-
-        System.out.println("4th write");
-        inputContinue();
-
-        checkEventualConsistency(0);
-
-        inputContinue();
-    }
-
-    void testDoubleCrash(){
-        StartWriteRequestMsg w1 = new StartWriteRequestMsg(0, 1, cacheL2.get(0));
-        StartWriteRequestMsg w2 = new StartWriteRequestMsg(0, 2, cacheL2.get(3));
-        clients.get(0).tell(w1, ActorRef.noSender());
-        clients.get(1).tell(w2, ActorRef.noSender());
-        System.out.println("First 2 writes sent!");
-
-        inputContinue();
-
-        CrashMsg cr1 = new CrashMsg(Common.CrashType.CritWriteRequest, Common.CrashTime.MessageProcessed);
-        CrashMsg cr2 = new CrashMsg(Common.CrashType.FlushRequest, Common.CrashTime.MessageReceived);
-        cacheL1.get(0).tell(cr1, ActorRef.noSender());
-        cacheL1.get(1).tell(cr2, ActorRef.noSender());
-        System.out.println("Crash Messages sent!");
-
-        inputContinue();
-        StartCritWriteRequestMsg wc1 = new StartCritWriteRequestMsg(0, 1690, cacheL2.get(0));
-        clients.get(0).tell(wc1, ActorRef.noSender());
-        System.out.println("Write Message sent!");
-        inputContinue();
-
-        checkEventualConsistency(0);
-        inputContinue();
-
     }
 
     void testCritReadCrash(){

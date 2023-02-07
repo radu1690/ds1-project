@@ -98,15 +98,15 @@ public class CriticalWrites {
 
 
         //uncomment which crash type and which cache you want to test:
-//        CrashMsg cr1 = new CrashMsg(Common.CrashType.CritWriteRequest, Common.CrashTime.MessageReceived);
-        CrashMsg cr1 = new CrashMsg(Common.CrashType.CritWriteRequest, Common.CrashTime.MessageProcessed);
+        CrashMsg cr1 = new CrashMsg(Common.CrashType.CritWriteRequest, Common.CrashTime.MessageReceived);
+//        CrashMsg cr1 = new CrashMsg(Common.CrashType.CritWriteRequest, Common.CrashTime.MessageProcessed);
 //        CrashMsg cr1 = new CrashMsg(Common.CrashType.FlushRequest, Common.CrashTime.MessageReceived);
 //        CrashMsg cr1 = new CrashMsg(Common.CrashType.FlushRequest, Common.CrashTime.MessageProcessed);
 //        CrashMsg cr1 = new CrashMsg(Common.CrashType.WriteResponse, Common.CrashTime.MessageReceived);
 //        CrashMsg cr1 = new CrashMsg(Common.CrashType.WriteResponse, Common.CrashTime.MessageProcessed);
 
-        cacheL1.get(0).tell(cr1, ActorRef.noSender());
-//        cacheL2.get(0).tell(cr1, ActorRef.noSender());
+//        cacheL1.get(0).tell(cr1, ActorRef.noSender());
+        cacheL2.get(0).tell(cr1, ActorRef.noSender());
 
 
 
@@ -134,13 +134,14 @@ public class CriticalWrites {
         checkEventualConsistency(0);
         inputContinue();
 
+        wc1 = new StartCritWriteRequestMsg(0, 9999, cacheL2.get(1));
+        clients.get(3).tell(wc1, ActorRef.noSender());
         clients.get(0).tell(r1, ActorRef.noSender());
         clients.get(1).tell(r2, ActorRef.noSender());
         clients.get(2).tell(r3, ActorRef.noSender());
         clients.get(4).tell(r4, ActorRef.noSender());
         clients.get(5).tell(r5, ActorRef.noSender());
-        wc1 = new StartCritWriteRequestMsg(0, 9999, cacheL2.get(1));
-        clients.get(3).tell(wc1, ActorRef.noSender());
+
 
         inputContinue();
         checkEventualConsistency(0);

@@ -274,19 +274,19 @@ public class L1 extends Cache{
 
     @Override
     protected void onRecoveryMsg(RecoveryMsg msg){
-        data = new HashMap<>();
-        requestsActors = new HashMap<>();
-        pendingReads = new ArrayList<>();
-        nextCrash = Common.CrashType.NONE;
-        nextCrashWhen = Common.CrashTime.NONE;
-        servedWrites = new HashSet<>();
-//        locks = new HashMap<>();
-        locks = new HashSet<>();
-        getContext().become(createReceive());
-        recoveredAfterCrash = true;
-        //CONTACT DB
-        ChildReconnectedMsg m = new ChildReconnectedMsg();
-        database.tell(m, getSelf());
+//        data = new HashMap<>();
+//        requestsActors = new HashMap<>();
+//        pendingReads = new ArrayList<>();
+//        nextCrash = Common.CrashType.NONE;
+//        nextCrashWhen = Common.CrashTime.NONE;
+//        servedWrites = new HashSet<>();
+////        locks = new HashMap<>();
+//        locks = new HashSet<>();
+//        getContext().become(createReceive());
+//        recoveredAfterCrash = true;
+//        //CONTACT DB
+//        ChildReconnectedMsg m = new ChildReconnectedMsg();
+//        database.tell(m, getSelf());
     }
 
     private void onChildReconnectedMsg(ChildReconnectedMsg msg){
@@ -294,8 +294,10 @@ public class L1 extends Cache{
         boolean removed = crashedCaches.remove(getSender());
         say("Removed "+sender.path().name()+" from crashedCaches: "+ removed);
         //if this L1 cache recovered after a crash, L2 children should contact the database instead
-        CrashedFather m = new CrashedFather();
-        getSender().tell(m, getSelf());
+        if(this.recoveredAfterCrash){
+            CrashedFather m = new CrashedFather();
+            getSender().tell(m, getSelf());
+        }
     }
 
     private void onReadRequestMsgMatch(ReadRequestMsg msg){

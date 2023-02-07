@@ -96,6 +96,7 @@ public class L2 extends Cache{
     }
 
     private void onWriteResponseMsg(WriteResponseMsg msg) {
+//        sayError("Received write response from: "+getSender().path().name());
         Common.simulateDelay();
         if(gonnaCrash(Common.CrashType.WriteResponse, Common.CrashTime.MessageReceived)){
             return;
@@ -120,6 +121,7 @@ public class L2 extends Cache{
         }
         //if a client requested this data, remove it from requests and send it
         if(this.requestsActors.get(msg.requestId) != null) {
+//            sayError("Sending response back to client: "+this.requestsActors.get(msg.requestId).path().name());
             this.requestsActors.remove(msg.requestId).tell(msg, getSelf());
         }
         //remove eventual lock and process pending reads
@@ -221,6 +223,9 @@ public class L2 extends Cache{
                     getContext().system().dispatcher(),                 // system dispatcher
                     getSelf()                                           // source of the message (myself)
             );
+        }else{
+            Serializable m = requestsMessages.get(msg.requestId);
+            this.database.tell(m, getSelf());
         }
     }
 

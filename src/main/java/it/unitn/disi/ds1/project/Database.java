@@ -164,8 +164,8 @@ public class Database extends AbstractActor {
     private void onWriteRequestMsg(WriteRequestMsg msg, ActorRef sender) {
         Common.simulateDelay();
         if(sender == null){
-            sayError("Received writeRequest on dataId: "+msg.dataId+" and value: "+msg.value);
             sender = getSender();
+            sayError("Received writeRequest on dataId: "+msg.dataId+" and value: "+msg.value+" from "+sender.path().name());
         }
         checkCrashAndUpdate(sender);
         if(checkLocks(msg, sender, true)){
@@ -179,9 +179,6 @@ public class Database extends AbstractActor {
 
         if(servedWrites.contains(msg.requestId)){
             say("Request already served, not writing again");
-//            WriteResponseMsg response = new WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
-//            sender.tell(response, getSelf());
-//            return;
         }else{
             this.data.put(msg.dataId, msg.value);
         }
@@ -197,13 +194,14 @@ public class Database extends AbstractActor {
         for(ActorRef L1 : this.cacheL1){
             //send to all L1 (except sender) that did not crash
             if(!crashedCaches.contains(L1)){
-//                sayError("L1: "+L1.path().name());
+//                sayError("REFILLING L1: "+L1.path().name());
                 if(L1 != sender){
                     fills.add(L1);
                     L1.tell(refillRequestMsg, getSelf());
                 }
             }else{
                 //this L1 crashed, need to send the response to its L2
+//                sayError("L1 CRASHED: "+L1.path().name());
                 for(ActorRef L2 : this.cacheL2.get(L1)){
                     if(!crashedCaches.contains(L2)){
                         //send only if not crashed
@@ -265,7 +263,6 @@ public class Database extends AbstractActor {
         }
         //onFlushResponseMsg will remove caches from flushes, so we need to add a timeout here to see if all caches have
         //been removed
-        //COMPLETED add flush timeout
         getContext().system().scheduler().scheduleOnce(
                 Duration.create(Common.msgTimeoutMs, TimeUnit.MILLISECONDS),  // how frequently generate them
                 getSelf(),                                          // destination actor reference
@@ -328,7 +325,7 @@ public class Database extends AbstractActor {
             HashSet<ActorRef> newFlushes = new HashSet<>();
             FlushRequestMsg flushMsg = new FlushRequestMsg(msg.dataId, msg.requestId);
             for(ActorRef crashedCache : checks){
-                sayError(crashedCache.path().name()+" crashed");
+                sayError("Crash detected on: "+crashedCache.path().name());
                 flushes.remove(crashedCache);
                 if(cacheL2.get(crashedCache)!= null){
                     //crashed cache is l1, contact children
@@ -417,6 +414,7 @@ public class Database extends AbstractActor {
             //message comes from a l2 cache
             if(!crashedCaches.contains(crashed)){
                 //if l1 cache was not in crashedCaches, add it and update children
+//                sayError("received msg from l2; Crash detected on: "+crashed.path().name());
                 crashedCaches.add(crashed);
                 //send a crashedFather msg to all children except sender (cache)
                 CrashedFather crashMsg = new CrashedFather();
@@ -611,7 +609,7 @@ public class Database extends AbstractActor {
         }
     }
 
-    public class ConsistencyCheck {
+    public static class ConsistencyCheck {
         public ActorRef cache;
         public Integer value;
 

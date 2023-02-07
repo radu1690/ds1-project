@@ -77,7 +77,7 @@ public class Client extends AbstractActor {
     }
 
     private void onReadResponseMsg(ReadResponseMsg msg) {
-        System.out.println(getSelf().path().name()+" received read response with dataId "+ msg.dataId + " and value "+msg.value+" from "+getSender().toString());
+        sayError(" received read response with dataId "+ msg.dataId + " and value "+msg.value+" from "+getSender().path().name());
         //requests.remove(msg.requestId);
         requestsMessages.remove(msg.requestId);
         waitingResponse = false;
@@ -96,7 +96,7 @@ public class Client extends AbstractActor {
     }
 
     private void onWriteResponseMsg(WriteResponseMsg msg){
-        say(getSelf().path().name()+" received write response with dataId "+ msg.dataId + " and value " + msg.currentValue+" from "+getSender().path().name());
+        sayError(getSelf().path().name()+" received write response with dataId "+ msg.dataId + " and value " + msg.currentValue+" from "+getSender().path().name());
 //        requests.remove(msg.requestId);
         requestsMessages.remove(msg.requestId);
         waitingResponse = false;

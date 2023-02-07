@@ -18,7 +18,7 @@ import java.util.Random;
 public class ConcurrentWrites {
     final static int N_L1 = 3;
     final static int N_L2 = 6;
-    final static int N_CLIENTS = 20;
+    final static int N_CLIENTS = 40;
 
     ActorRef database;
     List<ActorRef> cacheL1;
@@ -84,10 +84,11 @@ public class ConcurrentWrites {
     }
 
     void sendCrashMsg(){
-        CrashMsg cr1 = new CrashMsg(Common.CrashType.WriteRequest, Common.CrashTime.MessageProcessed);
+        CrashMsg cr1 = new CrashMsg(Common.CrashType.WriteRequest, Common.CrashTime.MessageReceived);
         //cacheL1 -> 0-2
         //cacheL2 -> 0-17
         cacheL1.get(2).tell(cr1, ActorRef.noSender());
+//        cacheL2.get(8).tell(cr1, ActorRef.noSender());
     }
 
     void testConcurrentWrites(){
@@ -104,8 +105,6 @@ public class ConcurrentWrites {
             checkEventualConsistency(2);
             inputContinue();
         }
-
-        inputContinue();
     }
 
 
