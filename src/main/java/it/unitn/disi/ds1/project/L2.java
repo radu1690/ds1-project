@@ -283,7 +283,6 @@ public class L2 extends Cache{
         nextCrash = Common.CrashType.NONE;
         nextCrashWhen = Common.CrashTime.NONE;
         servedWrites = new HashSet<>();
-//        locks = new HashMap<>();
         locks = new HashSet<>();
         checkMsgAnswers = new HashMap<>();
 

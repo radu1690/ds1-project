@@ -26,7 +26,6 @@ public class Client extends AbstractActor {
         requests = new ArrayList<>();
         requestsMessages = new HashMap<>();
         random = new Random();
-//        requestReceivers = new HashMap<>();
         checkMsgAnswers = new HashMap<>();
         waitingResponse = false;
         destinationActors = new HashMap<>();
@@ -48,8 +47,7 @@ public class Client extends AbstractActor {
             return;
         }
         waitingResponse = true;
-        Message
-                msg = requests.remove(0);
+        Message msg = requests.remove(0);
         sendMessageAndAddTimeout(msg, msg.requestId, destinationActors.get(msg.requestId));
     }
     private void addMsgToQueue(Message
@@ -73,12 +71,10 @@ public class Client extends AbstractActor {
         }
         addMsgToQueue(m, l2);
         processRequest();
-//        sendMessageAndAddTimeout(m, m.requestId, l2);
     }
 
     private void onReadResponseMsg(ReadResponseMsg msg) {
         sayError(" received read response with dataId "+ msg.dataId + " and value "+msg.value+" from "+getSender().path().name());
-        //requests.remove(msg.requestId);
         requestsMessages.remove(msg.requestId);
         waitingResponse = false;
         processRequest();
@@ -90,14 +86,12 @@ public class Client extends AbstractActor {
         if(l2 == null){
             l2 = getRandomL2();
         }
-//        sendMessageAndAddTimeout(m, m.requestId, l2);
         addMsgToQueue(m, l2);
         processRequest();
     }
 
     private void onWriteResponseMsg(WriteResponseMsg msg){
         sayError(getSelf().path().name()+" received write response with dataId "+ msg.dataId + " and value " + msg.currentValue+" from "+getSender().path().name());
-//        requests.remove(msg.requestId);
         requestsMessages.remove(msg.requestId);
         waitingResponse = false;
         processRequest();
@@ -109,7 +103,6 @@ public class Client extends AbstractActor {
         if(l2 == null){
             l2 = getRandomL2();
         }
-//        sendMessageAndAddTimeout(m, m.requestId, l2);
         addMsgToQueue(m, l2);
         processRequest();
     }
@@ -120,8 +113,6 @@ public class Client extends AbstractActor {
         if(l2 == null){
             l2 = getRandomL2();
         }
-//        say("received critWrite request with dataId "+ msg.dataId + " and value " + msg.value);
-//        sendMessageAndAddTimeout(m, m.requestId, l2);
         addMsgToQueue(m, l2);
         processRequest();
     }
@@ -156,8 +147,7 @@ public class Client extends AbstractActor {
             //request served
             return;
         }
-        Message
-                m = requestsMessages.get(msg.requestId);
+        Message m = requestsMessages.get(msg.requestId);
         //cache answered to the checkMsg but has not yet served the request
         if(checkMsgAnswers.get(msg.requestId)){
             //cache is still online, need to reschedule the check msg

@@ -20,7 +20,6 @@ public class L1 extends Cache{
         flushChecks = new HashMap<>();
         crashedCaches = new HashSet<>();
         recoveredAfterCrash = false;
-//        cacheL2 = new ArrayList<>();
     }
 
     static public Props props(ActorRef database) {
@@ -280,7 +279,6 @@ public class L1 extends Cache{
 //        nextCrash = Common.CrashType.NONE;
 //        nextCrashWhen = Common.CrashTime.NONE;
 //        servedWrites = new HashSet<>();
-////        locks = new HashMap<>();
 //        locks = new HashSet<>();
 //        getContext().become(createReceive());
 //        recoveredAfterCrash = true;

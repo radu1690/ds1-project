@@ -105,7 +105,7 @@ public class CriticalReads {
         checkEventualConsistency(0);
         inputContinue();
 
-        StartCritReadRequestMsg r2 = new StartCritReadRequestMsg(0, cacheL2.get(1));
+        StartCritReadRequestMsg r2 = new StartCritReadRequestMsg(0, cacheL2.get(11));
         clients.get(2).tell(r2, ActorRef.noSender());
         inputContinue();
 

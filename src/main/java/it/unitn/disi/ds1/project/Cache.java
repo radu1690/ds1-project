@@ -71,17 +71,14 @@ public class Cache extends AbstractActor {
     }
 
     protected void setLock(Message msg){
-//        this.locks.put(msg.dataId, true);
         this.locks.add(msg.dataId);
     }
 
     protected void removeLock(Message msg){
-//        this.locks.put(msg.dataId, false);
         this.locks.remove(msg.dataId);
     }
 
     protected boolean isLocked(Message msg){
-//        return locks.get(msg.dataId) != null && locks.get(msg.dataId);
         return locks.contains(msg.dataId);
     }
 

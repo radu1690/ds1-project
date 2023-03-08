@@ -18,7 +18,7 @@ import java.util.Random;
 public class ConcurrentWrites {
     final static int N_L1 = 3;
     final static int N_L2 = 6;
-    final static int N_CLIENTS = 40;
+    final static int N_CLIENTS = 10;
 
     ActorRef database;
     List<ActorRef> cacheL1;

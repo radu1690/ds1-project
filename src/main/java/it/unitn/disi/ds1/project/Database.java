@@ -439,7 +439,6 @@ public class Database extends AbstractActor {
         WriteResponseMsg response = new WriteResponseMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
         //for all the other caches, send a refill request
         RefillRequestMsg refill = new RefillRequestMsg(msg.dataId, data.get(msg.dataId), msg.requestId);
-//        this.critWriteFlushes.remove(msg.requestId);
         this.servedWrites.add(msg.requestId);
         HashSet<ActorRef> fills = new HashSet<>();
         this.fillResponses.put(msg.requestId, fills);

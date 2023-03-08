@@ -18,9 +18,9 @@ import java.util.Random;
  * You can choose the type of crash and the cache to crash by uncommenting the lines 101-109
  */
 public class CriticalWrites {
-    final static int N_L1 = 6;
-    final static int N_L2 = 3;
-    final static int N_CLIENTS = 6;
+    final static int N_L1 = 2;
+    final static int N_L2 = 1;
+    final static int N_CLIENTS = 3;
 
     ActorRef database;
     List<ActorRef> cacheL1;
@@ -86,47 +86,53 @@ public class CriticalWrites {
 
     void testCriticalWrite(){
         StartCritWriteRequestMsg wc1 = new StartCritWriteRequestMsg(0, 1690, cacheL2.get(0));
-        StartWriteRequestMsg w1 = new StartWriteRequestMsg(0, 1, cacheL2.get(9));
-        StartWriteRequestMsg w2 = new StartWriteRequestMsg(0, 2, cacheL2.get(3));
-        StartWriteRequestMsg w3 = new StartWriteRequestMsg(0, 3, cacheL2.get(6));
 
-        StartReadRequestMsg r1 = new StartReadRequestMsg(0, cacheL2.get(9));
-        StartReadRequestMsg r2 = new StartReadRequestMsg(0, cacheL2.get(12));
-        StartReadRequestMsg r3 = new StartReadRequestMsg(0, cacheL2.get(15));
-        StartReadRequestMsg r4 = new StartReadRequestMsg(0, cacheL2.get(17));
-        StartReadRequestMsg r5 = new StartReadRequestMsg(0, cacheL2.get(8));
+
+//        StartWriteRequestMsg w1 = new StartWriteRequestMsg(0, 1, cacheL2.get(9));
+//        StartWriteRequestMsg w2 = new StartWriteRequestMsg(0, 2, cacheL2.get(3));
+//        StartWriteRequestMsg w3 = new StartWriteRequestMsg(0, 3, cacheL2.get(6));
+//
+//        StartReadRequestMsg r1 = new StartReadRequestMsg(0, cacheL2.get(9));
+//        StartReadRequestMsg r2 = new StartReadRequestMsg(0, cacheL2.get(12));
+//        StartReadRequestMsg r3 = new StartReadRequestMsg(0, cacheL2.get(15));
+//        StartReadRequestMsg r4 = new StartReadRequestMsg(0, cacheL2.get(17));
+//        StartReadRequestMsg r5 = new StartReadRequestMsg(0, cacheL2.get(8));
 
 
         //uncomment which crash type and which cache you want to test:
-        CrashMsg cr1 = new CrashMsg(Common.CrashType.CritWriteRequest, Common.CrashTime.MessageReceived);
+        CrashMsg cr1 = new CrashMsg(Common.CrashType.FlushRequest, Common.CrashTime.MessageReceived);
 //        CrashMsg cr1 = new CrashMsg(Common.CrashType.CritWriteRequest, Common.CrashTime.MessageProcessed);
 //        CrashMsg cr1 = new CrashMsg(Common.CrashType.FlushRequest, Common.CrashTime.MessageReceived);
 //        CrashMsg cr1 = new CrashMsg(Common.CrashType.FlushRequest, Common.CrashTime.MessageProcessed);
 //        CrashMsg cr1 = new CrashMsg(Common.CrashType.WriteResponse, Common.CrashTime.MessageReceived);
 //        CrashMsg cr1 = new CrashMsg(Common.CrashType.WriteResponse, Common.CrashTime.MessageProcessed);
 
-//        cacheL1.get(0).tell(cr1, ActorRef.noSender());
-        cacheL2.get(0).tell(cr1, ActorRef.noSender());
+        cacheL1.get(1).tell(cr1, ActorRef.noSender());
+//        cacheL2.get(0).tell(cr1, ActorRef.noSender());
 
 
 
-        clients.get(0).tell(w1, ActorRef.noSender());
-        clients.get(0).tell(w2, ActorRef.noSender());
-        clients.get(0).tell(w3, ActorRef.noSender());
+//        clients.get(0).tell(w1, ActorRef.noSender());
+//        clients.get(1).tell(w2, ActorRef.noSender());
+//        clients.get(2).tell(w3, ActorRef.noSender());
 
         inputContinue();
 
         System.out.println("Consistency before critical write:");
         checkEventualConsistency(0);
         inputContinue();
+        clients.get(0).tell(wc1, ActorRef.noSender());
+        StartReadRequestMsg r1 = new StartReadRequestMsg(0, cacheL2.get(1));
+        StartReadRequestMsg r2 = new StartReadRequestMsg(0, cacheL2.get(0));
+        clients.get(1).tell(r1, ActorRef.noSender());
+        clients.get(2).tell(r2, ActorRef.noSender());
 
-
-        clients.get(2).tell(wc1, ActorRef.noSender());
-        clients.get(0).tell(r1, ActorRef.noSender());
-        clients.get(1).tell(r2, ActorRef.noSender());
-        clients.get(3).tell(r3, ActorRef.noSender());
-        clients.get(4).tell(r4, ActorRef.noSender());
-        clients.get(5).tell(r5, ActorRef.noSender());
+//        clients.get(2).tell(wc1, ActorRef.noSender());
+//        clients.get(0).tell(r1, ActorRef.noSender());
+//        clients.get(1).tell(r2, ActorRef.noSender());
+//        clients.get(3).tell(r3, ActorRef.noSender());
+//        clients.get(4).tell(r4, ActorRef.noSender());
+//        clients.get(5).tell(r5, ActorRef.noSender());
         inputContinue();
 
 
@@ -134,13 +140,13 @@ public class CriticalWrites {
         checkEventualConsistency(0);
         inputContinue();
 
-        wc1 = new StartCritWriteRequestMsg(0, 9999, cacheL2.get(1));
-        clients.get(3).tell(wc1, ActorRef.noSender());
-        clients.get(0).tell(r1, ActorRef.noSender());
-        clients.get(1).tell(r2, ActorRef.noSender());
-        clients.get(2).tell(r3, ActorRef.noSender());
-        clients.get(4).tell(r4, ActorRef.noSender());
-        clients.get(5).tell(r5, ActorRef.noSender());
+//        wc1 = new StartCritWriteRequestMsg(0, 9999, cacheL2.get(1));
+//        clients.get(3).tell(wc1, ActorRef.noSender());
+//        clients.get(0).tell(r1, ActorRef.noSender());
+//        clients.get(1).tell(r2, ActorRef.noSender());
+//        clients.get(2).tell(r3, ActorRef.noSender());
+//        clients.get(4).tell(r4, ActorRef.noSender());
+//        clients.get(5).tell(r5, ActorRef.noSender());
 
 
         inputContinue();

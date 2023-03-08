@@ -100,6 +100,7 @@ public class MultipleCriticalWrites {
         StartReadRequestMsg r4 = new StartReadRequestMsg(0);
         CrashMsg cr1 = new CrashMsg(Common.CrashType.CritWriteRequest, Common.CrashTime.MessageReceived);
         cacheL2.get(2).tell(cr1, ActorRef.noSender());
+//        cacheL2.get(5).tell(cr1, ActorRef.noSender());
 
         clients.get(0).tell(w1, ActorRef.noSender());
         clients.get(0).tell(w2, ActorRef.noSender());
